@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Merge — Documentation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1a1a1a;
+    background: #fff;
+    line-height: 1.7;
+  }
+
+  /* ── Top bar ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid #e5e5e5;
+    padding: 14px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  header h1 {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.3px;
+  }
+  header h1 span { color: #888; font-weight: 400; margin-left: 6px; font-size: 14px; }
+  .back-link {
+    font-size: 13px; color: #2563eb; text-decoration: none;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .back-link:hover { text-decoration: underline; }
+
+  /* ── Layout ── */
+  .page {
+    display: flex; max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px;
+    gap: 48px;
+  }
+
+  /* ── Sidebar nav ── */
+  aside {
+    position: sticky; top: 80px; align-self: flex-start;
+    width: 200px; flex-shrink: 0;
+  }
+  aside ul { list-style: none; }
+  aside li { margin-bottom: 2px; }
+  aside a {
+    display: block; padding: 5px 10px; border-radius: 5px;
+    font-size: 13px; color: #555; text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+  }
+  aside a:hover { background: #f0f4ff; color: #1d4ed8; }
+  aside a.active { background: #eff6ff; color: #2563eb; font-weight: 600; }
+
+  /* ── Content ── */
+  main { flex: 1; min-width: 0; }
+
+  section { margin-bottom: 48px; }
+  section:target { scroll-margin-top: 80px; }
+
+  h2 {
+    font-size: 22px; font-weight: 700; margin-bottom: 16px;
+    padding-bottom: 8px; border-bottom: 2px solid #f0f0f0;
+    letter-spacing: -0.3px;
+  }
+  h3 {
+    font-size: 15px; font-weight: 600; margin: 20px 0 8px;
+    color: #333;
+  }
+  p { margin-bottom: 12px; color: #444; font-size: 14.5px; }
+
+  ul.feature-list {
+    list-style: none; margin-bottom: 16px;
+  }
+  ul.feature-list > li {
+    padding: 8px 0 8px 20px; position: relative;
+    font-size: 14px; color: #444;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  ul.feature-list > li::before {
+    content: ''; position: absolute; left: 0; top: 16px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #2563eb;
+  }
+  ul.feature-list > li strong {
+    color: #1a1a1a;
+  }
+
+  /* Keyboard shortcut styling */
+  kbd {
+    display: inline-block;
+    padding: 2px 6px; border-radius: 4px;
+    background: #f3f4f6; border: 1px solid #d1d5db;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 12px; color: #374151;
+    box-shadow: 0 1px 0 #d1d5db;
+    white-space: nowrap;
+  }
+  .shortcut-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 4px 24px; margin: 8px 0 16px;
+  }
+  .shortcut-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 0; font-size: 13px; color: #444;
+    border-bottom: 1px solid #f5f5f5;
+  }
+  .shortcut-row .keys { display: flex; gap: 3px; }
+
+  /* Tip boxes */
+  .tip {
+    background: #f0f9ff; border-left: 3px solid #2563eb;
+    padding: 10px 14px; border-radius: 0 6px 6px 0;
+    margin: 12px 0 16px; font-size: 13px; color: #1e40af;
+  }
+  .tip strong { color: #1e3a8a; }
+
+  /* Bracket example */
+  code {
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 13px; background: #f3f4f6;
+    padding: 2px 5px; border-radius: 3px; color: #374151;
+  }
+  pre {
+    background: #f8f9fa; border: 1px solid #e5e7eb;
+    border-radius: 6px; padding: 12px 16px;
+    font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 13px; color: #374151;
+    overflow-x: auto; margin: 8px 0 16px;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .page { flex-direction: column; gap: 24px; }
+    aside { position: static; width: 100%; }
+    .shortcut-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Merge <span>Documentation</span></h1>
+  <a href="index.html" class="back-link">&larr; Back to app</a>
+</header>
+
+<div class="page">
+
+<aside>
+  <ul>
+    <li><a href="#getting-started">Getting Started</a></li>
+    <li><a href="#building-trees">Building Trees</a></li>
+    <li><a href="#editing-nodes">Editing Nodes</a></li>
+    <li><a href="#styling-nodes">Styling Nodes</a></li>
+    <li><a href="#branches">Branches &amp; Triangles</a></li>
+    <li><a href="#arrows">Arrows</a></li>
+    <li><a href="#arrow-labels">Arrow Labels</a></li>
+    <li><a href="#color-picker">Custom Colors</a></li>
+    <li><a href="#exporting">Exporting</a></li>
+    <li><a href="#save-load">Save &amp; Load</a></li>
+    <li><a href="#shortcuts">Keyboard Shortcuts</a></li>
+  </ul>
+</aside>
+
+<main>
+
+<!-- ─── Getting Started ─── -->
+<section id="getting-started">
+  <h2>Getting Started</h2>
+  <p>Merge is a visual syntax tree editor for linguistics. You can build, style, and export publication-ready tree diagrams directly in your browser.</p>
+
+  <h3>Quick start</h3>
+  <ul class="feature-list">
+    <li>Click <strong>Add Root</strong> to create your first node</li>
+    <li>Select a node, then click <strong>Add Child</strong> or press <kbd>Tab</kbd> to add children</li>
+    <li>Double-click any node to edit its label</li>
+    <li>Or type bracket notation in the bar at the bottom and press <kbd>Enter</kbd></li>
+  </ul>
+
+  <h3>Bracket notation</h3>
+  <p>You can build entire trees instantly by typing labeled bracket notation:</p>
+  <pre>[S [NP [Det the] [N cat]] [VP [V sat]]]</pre>
+
+  <div class="tip">
+    <strong>Tip:</strong> The bracket bar at the bottom always shows the current tree in bracket notation. You can edit it and re-parse at any time.
+  </div>
+</section>
+
+<!-- ─── Building Trees ─── -->
+<section id="building-trees">
+  <h2>Building Trees</h2>
+  <ul class="feature-list">
+    <li><strong>Add Root</strong> — Creates the root node (labeled "S"). Only available when the canvas is empty.</li>
+    <li><strong>Add Child</strong> — Adds a child to the selected node. The new node opens immediately in edit mode. Shortcut: <kbd>Tab</kbd></li>
+    <li><strong>Add Triangle</strong> — Adds a terminal child with triangle notation, used to indicate dominance without showing internal structure. Shortcut: <kbd>T</kbd></li>
+    <li><strong>Delete</strong> — Removes the selected node and its entire subtree. Shortcut: <kbd>Delete</kbd> or <kbd>Backspace</kbd></li>
+    <li><strong>Reorder siblings</strong> — Right-click a node and choose <strong>Move Left</strong> or <strong>Move Right</strong> to reorder among siblings.</li>
+  </ul>
+
+  <div class="tip">
+    <strong>Tip:</strong> Use arrow keys to navigate the tree: <kbd>&uarr;</kbd> parent, <kbd>&darr;</kbd> first child, <kbd>&larr;</kbd><kbd>&rarr;</kbd> siblings.
+  </div>
+</section>
+
+<!-- ─── Editing Nodes ─── -->
+<section id="editing-nodes">
+  <h2>Editing Nodes</h2>
+  <p>Double-click a node (or select it and press <kbd>Enter</kbd>) to open the inline editor.</p>
+
+  <h3>Rich text formatting</h3>
+  <p>While editing, a format bar appears with the following options:</p>
+  <ul class="feature-list">
+    <li><strong>Bold</strong> — <kbd>Cmd/Ctrl</kbd> + <kbd>B</kbd></li>
+    <li><strong>Italic</strong> — <kbd>Cmd/Ctrl</kbd> + <kbd>I</kbd></li>
+    <li><strong>Subscript</strong> — format bar button (X<sub>2</sub>)</li>
+    <li><strong>Superscript</strong> — format bar button (X<sup>2</sup>)</li>
+    <li><strong>Strikethrough</strong> — format bar button (<s>S</s>)</li>
+    <li><strong>Text color</strong> — pick from preset swatches or use the custom color picker</li>
+  </ul>
+
+  <h3>Multi-line labels</h3>
+  <p>Press <kbd>Shift</kbd> + <kbd>Enter</kbd> to add a new line within a node label. Press <kbd>Enter</kbd> alone to confirm your edit.</p>
+</section>
+
+<!-- ─── Styling Nodes ─── -->
+<section id="styling-nodes">
+  <h2>Styling Nodes</h2>
+  <p>Select a node to reveal the styling bars below the toolbar.</p>
+
+  <h3>Fill color</h3>
+  <ul class="feature-list">
+    <li>Pick a preset color or use the custom color picker to set a background fill</li>
+    <li>Click the strikethrough square button to remove the fill</li>
+    <li>Fill colors are preserved in exports</li>
+  </ul>
+
+  <h3>Border color</h3>
+  <ul class="feature-list">
+    <li>Node borders are invisible by default</li>
+    <li>Pick a color to make the border visible</li>
+    <li>Click the strikethrough square button to hide the border again</li>
+    <li>Border colors are preserved in both PNG and SVG exports</li>
+  </ul>
+</section>
+
+<!-- ─── Branches & Triangles ─── -->
+<section id="branches">
+  <h2>Branches &amp; Triangles</h2>
+
+  <h3>Branch color</h3>
+  <ul class="feature-list">
+    <li>Click on a branch line to select it</li>
+    <li>A <strong>Branch Color</strong> bar appears with preset swatches and a custom color picker</li>
+    <li>Each branch can have an independent color</li>
+  </ul>
+
+  <h3>Triangle fill</h3>
+  <ul class="feature-list">
+    <li>When you click on a triangle branch, a <strong>Fill</strong> bar also appears</li>
+    <li>This fills the interior of the triangle shape — independent from the node fill below</li>
+    <li>Triangle fills are preserved in exports</li>
+  </ul>
+</section>
+
+<!-- ─── Arrows ─── -->
+<section id="arrows">
+  <h2>Arrows</h2>
+  <p>Arrows connect two nodes with a directed path, commonly used for movement or binding relationships.</p>
+
+  <h3>Creating arrows</h3>
+  <ul class="feature-list">
+    <li>Click <strong>Add Arrow</strong> or press <kbd>A</kbd> to enter arrow mode</li>
+    <li><strong>Step 1:</strong> Click the source node</li>
+    <li><strong>Step 2:</strong> Click the target node</li>
+    <li>Press <kbd>Esc</kbd> to cancel</li>
+  </ul>
+
+  <h3>Arrow shapes</h3>
+  <ul class="feature-list">
+    <li><strong>Curve</strong> — smooth Bezier curve (default). Drag the midpoint handle to adjust curvature.</li>
+    <li><strong>Straight</strong> — direct line between endpoints.</li>
+    <li><strong>Elbow</strong> — right-angled path with two draggable handles for fine-tuning the route.</li>
+  </ul>
+
+  <h3>Arrow styles</h3>
+  <ul class="feature-list">
+    <li><strong>Solid</strong>, <strong>Dashed</strong>, or <strong>Dotted</strong> line patterns</li>
+    <li><strong>Color</strong> — pick from presets or use the custom picker</li>
+  </ul>
+
+  <h3>Anchor positioning</h3>
+  <ul class="feature-list">
+    <li>Each arrow endpoint has a small circular handle at the node edge</li>
+    <li><strong>Drag the handle</strong> to re-attach it to a different node or edge (top, bottom, left, right)</li>
+    <li><strong><kbd>Cmd/Ctrl</kbd> + drag</strong> to slide the anchor along the current edge without changing which edge it's on</li>
+  </ul>
+
+  <div class="tip">
+    <strong>Tip:</strong> Anchor sliding is useful when multiple arrows connect to the same node — you can spread them out along an edge for clarity.
+  </div>
+</section>
+
+<!-- ─── Arrow Labels ─── -->
+<section id="arrow-labels">
+  <h2>Arrow Labels</h2>
+  <ul class="feature-list">
+    <li><strong>Double-click</strong> an arrow to add or edit a label</li>
+    <li>Labels appear at the midpoint of the arrow path</li>
+    <li>Labels support the same rich text options as node labels: bold, italic, subscript, superscript, strikethrough, and color</li>
+    <li>Press <kbd>Enter</kbd> to confirm, <kbd>Esc</kbd> to cancel</li>
+  </ul>
+</section>
+
+<!-- ─── Custom Colors ─── -->
+<section id="color-picker">
+  <h2>Custom Colors</h2>
+  <p>Every color palette in Merge includes a rainbow button that opens the custom color picker.</p>
+
+  <h3>Using the picker</h3>
+  <ul class="feature-list">
+    <li><strong>Gradient area</strong> — click or drag to choose saturation (left-right) and brightness (top-bottom)</li>
+    <li><strong>Hue bar</strong> — click or drag to select the base hue</li>
+    <li><strong>Preview swatch</strong> — shows the currently selected color in real-time</li>
+    <li><strong>Hex input</strong> — type a hex code directly (e.g. <code>#2563eb</code>) and press <kbd>Enter</kbd></li>
+    <li><strong>OK</strong> — apply the color</li>
+  </ul>
+
+  <h3>Favorite colors</h3>
+  <ul class="feature-list">
+    <li>Click <strong>Save</strong> to add the current color to your favorites (up to 12)</li>
+    <li>Favorites appear as small swatches below the hex input</li>
+    <li>Click a favorite swatch to jump to that color</li>
+    <li>Hover over a favorite and click the <strong>&times;</strong> to remove it</li>
+    <li>Favorites persist across sessions (stored in your browser)</li>
+  </ul>
+</section>
+
+<!-- ─── Exporting ─── -->
+<section id="exporting">
+  <h2>Exporting</h2>
+  <p>Click the <strong>Export</strong> dropdown in the toolbar to choose a format.</p>
+
+  <h3>PNG</h3>
+  <ul class="feature-list">
+    <li>High-resolution (8x scale) with transparent background</li>
+    <li>Auto-cropped to content with padding</li>
+    <li>Ideal for presentations, papers, and social media</li>
+  </ul>
+
+  <h3>SVG</h3>
+  <ul class="feature-list">
+    <li>Scalable vector format with white background</li>
+    <li>Perfect for embedding in documents or further editing in vector tools</li>
+    <li>Standalone file with all styles embedded</li>
+  </ul>
+
+  <h3>LaTeX (forest)</h3>
+  <ul class="feature-list">
+    <li>Generates code for the <code>forest</code> package</li>
+    <li>Copied to clipboard automatically (falls back to <code>.tex</code> download)</li>
+    <li>Includes branch colors, triangle notation, and arrow commands</li>
+    <li>Ready to paste into your LaTeX document</li>
+  </ul>
+
+  <div class="tip">
+    <strong>Tip:</strong> Node fill colors, border colors, and all arrow properties are preserved in PNG and SVG exports.
+  </div>
+</section>
+
+<!-- ─── Save & Load ─── -->
+<section id="save-load">
+  <h2>Save &amp; Load</h2>
+  <ul class="feature-list">
+    <li><strong>Save</strong> — downloads your project as a <code>.json</code> file containing the full tree, arrows, and settings</li>
+    <li><strong>Load</strong> — open a previously saved <code>.json</code> or <code>.merge</code> file</li>
+    <li><strong>Auto-save</strong> — your work is automatically saved to your browser's local storage on every change. When you reopen Merge, your last tree is restored.</li>
+  </ul>
+</section>
+
+<!-- ─── Keyboard Shortcuts ─── -->
+<section id="shortcuts">
+  <h2>Keyboard Shortcuts</h2>
+  <p>Press <kbd>?</kbd> at any time to see shortcuts inside the app.</p>
+
+  <h3>General</h3>
+  <div class="shortcut-grid">
+    <div class="shortcut-row"><span>Show shortcuts</span><span class="keys"><kbd>?</kbd></span></div>
+    <div class="shortcut-row"><span>Undo</span><span class="keys"><kbd>Cmd/Ctrl</kbd> + <kbd>Z</kbd></span></div>
+    <div class="shortcut-row"><span>Redo</span><span class="keys"><kbd>Cmd/Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd></span></div>
+    <div class="shortcut-row"><span>Save project</span><span class="keys"><kbd>Cmd/Ctrl</kbd> + <kbd>S</kbd></span></div>
+    <div class="shortcut-row"><span>Export PNG</span><span class="keys"><kbd>Cmd/Ctrl</kbd> + <kbd>E</kbd></span></div>
+  </div>
+
+  <h3>Tree navigation</h3>
+  <div class="shortcut-grid">
+    <div class="shortcut-row"><span>Parent node</span><span class="keys"><kbd>&uarr;</kbd></span></div>
+    <div class="shortcut-row"><span>First child</span><span class="keys"><kbd>&darr;</kbd></span></div>
+    <div class="shortcut-row"><span>Left sibling</span><span class="keys"><kbd>&larr;</kbd></span></div>
+    <div class="shortcut-row"><span>Right sibling</span><span class="keys"><kbd>&rarr;</kbd></span></div>
+  </div>
+
+  <h3>Editing</h3>
+  <div class="shortcut-grid">
+    <div class="shortcut-row"><span>Edit node label</span><span class="keys"><kbd>Enter</kbd></span></div>
+    <div class="shortcut-row"><span>Add child</span><span class="keys"><kbd>Tab</kbd></span></div>
+    <div class="shortcut-row"><span>Add triangle child</span><span class="keys"><kbd>T</kbd></span></div>
+    <div class="shortcut-row"><span>Toggle arrow mode</span><span class="keys"><kbd>A</kbd></span></div>
+    <div class="shortcut-row"><span>Delete selected</span><span class="keys"><kbd>Delete</kbd></span></div>
+    <div class="shortcut-row"><span>Deselect / Cancel</span><span class="keys"><kbd>Esc</kbd></span></div>
+  </div>
+
+  <h3>While editing a label</h3>
+  <div class="shortcut-grid">
+    <div class="shortcut-row"><span>Bold</span><span class="keys"><kbd>Cmd/Ctrl</kbd> + <kbd>B</kbd></span></div>
+    <div class="shortcut-row"><span>Italic</span><span class="keys"><kbd>Cmd/Ctrl</kbd> + <kbd>I</kbd></span></div>
+    <div class="shortcut-row"><span>New line</span><span class="keys"><kbd>Shift</kbd> + <kbd>Enter</kbd></span></div>
+    <div class="shortcut-row"><span>Confirm edit</span><span class="keys"><kbd>Enter</kbd></span></div>
+    <div class="shortcut-row"><span>Cancel edit</span><span class="keys"><kbd>Esc</kbd></span></div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+// Highlight active nav item on scroll
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('aside a');
+
+function updateActiveNav() {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 120) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+}
+window.addEventListener('scroll', updateActiveNav, { passive: true });
+updateActiveNav();
+</script>
+
+</body>
+</html>

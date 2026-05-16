@@ -610,10 +610,104 @@ button.active {
   color: #aaa;
 }
 
+.donate-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.donate-modal {
+  background: #fffefa;
+  border: 1px solid #e0dcd4;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(80,60,30,0.15);
+  padding: 24px 28px;
+  max-width: 420px;
+  width: 90%;
+  animation: modal-in 0.15s ease-out;
+}
+
+.donate-modal h2 {
+  font-family: 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #3d3530;
+  margin-bottom: 6px;
+}
+
+.donate-modal p {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  color: #998e80;
+  margin-bottom: 16px;
+}
+
+.donate-modal .wallet-section {
+  margin-bottom: 14px;
+}
+
+.donate-modal .wallet-label {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #998e80;
+  margin-bottom: 4px;
+}
+
+.donate-modal .wallet-addr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f7f2eb;
+  border: 1px solid #e8e4dc;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: #4a4540;
+  word-break: break-all;
+}
+
+.donate-modal .wallet-addr button {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  font-size: 10px;
+  border: 1px solid #d4cfc7;
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  color: #6b5740;
+}
+
+.donate-modal .wallet-addr button:hover {
+  background: #f0ebe3;
+}
+
+.donate-modal .close-btn {
+  display: block;
+  margin: 16px auto 0;
+  padding: 5px 16px;
+  font-size: 12px;
+  border: 1px solid #d4cfc7;
+  border-radius: 4px;
+  background: #fff;
+  color: #6b5740;
+  cursor: pointer;
+}
+
+.donate-modal .close-btn:hover {
+  background: #f7f2eb;
+}
+
 .shortcuts-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.35);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -741,6 +835,7 @@ button.active {
     </div>
   </div>
   <a href="docs.html" target="_blank" style="font-size:11px;color:#998e80;text-decoration:none;margin-left:8px;font-family:-apple-system,sans-serif;" title="Documentation">Docs</a>
+  <button onclick="document.getElementById('donate-overlay').style.display='flex'" style="font-size:11px;padding:4px 10px;background:none;border:1px solid #d4cfc7;color:#6b5740;">Support</button>
 </header>
 
 <div class="arrow-mode-banner" id="arrow-banner" style="display:none">
@@ -820,6 +915,28 @@ button.active {
 <input type="file" id="file-input" accept=".json,.merge" style="display:none">
 <div class="context-menu" id="context-menu" style="display:none;"></div>
 <div class="toast" id="toast"></div>
+
+<div class="donate-overlay" id="donate-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="donate-modal">
+    <h2>Support this project</h2>
+    <p>If Merge is useful for your research, consider supporting its development.</p>
+    <div class="wallet-section">
+      <div class="wallet-label">USDT (TRC-20 / Tron)</div>
+      <div class="wallet-addr">
+        <span id="addr-trc20">TPZdm6tZJJB6vh8ZmeCV2fiA5K7rGjaPCv</span>
+        <button onclick="navigator.clipboard.writeText('TPZdm6tZJJB6vh8ZmeCV2fiA5K7rGjaPCv');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+      </div>
+    </div>
+    <div class="wallet-section">
+      <div class="wallet-label">USDT (ERC-20 / Ethereum)</div>
+      <div class="wallet-addr">
+        <span id="addr-erc20">0x03c32427b31271a2bea51037981a64001f9243dd</span>
+        <button onclick="navigator.clipboard.writeText('0x03c32427b31271a2bea51037981a64001f9243dd');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
+      </div>
+    </div>
+    <button class="close-btn" onclick="document.getElementById('donate-overlay').style.display='none'">Close</button>
+  </div>
+</div>
 
 <div class="shortcuts-overlay" id="shortcuts-overlay" style="display:none">
   <div class="shortcuts-modal">

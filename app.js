@@ -2180,7 +2180,10 @@ class App {
         if (this.arrowMode) {
           this.handleArrowClick(n.id);
         } else if (e.metaKey || e.ctrlKey) {
-          this.selectArrow(null);
+          // Clear arrow selection without wiping node selections
+          this.selectedArrowIdx = null;
+          this.updateArrowFormatBar();
+          document.getElementById('btn-delete-arrow').style.display = 'none';
           this.toggleSelect(n.id);
         } else {
           this.selectArrow(null);

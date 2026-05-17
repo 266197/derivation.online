@@ -34,6 +34,7 @@ class App {
     this.editingNode = null;
     this.editingArrowIdx = null;
     this.alignBottom = false;
+    this._clipboard = null;  // subtree JSON for copy/cut-paste
     this.svg = document.getElementById('tree-canvas');
     this.wrapper = document.getElementById('canvas-wrapper');
     this.emptyState = document.getElementById('empty-state');
@@ -90,6 +91,31 @@ class App {
       if (e.key === '?' || (mod && e.key === '/')) {
         e.preventDefault();
         this.toggleShortcutsHelp();
+        return;
+      }
+
+      // Ctrl/Cmd+C — copy subtree
+      if (mod && e.key === 'c' && !inEdit) {
+        if (this.selectedId) {
+          e.preventDefault();
+          this.copySubtree();
+        }
+        return;
+      }
+
+      // Ctrl/Cmd+X — cut subtree
+      if (mod && e.key === 'x' && !inEdit) {
+        if (this.selectedId) {
+          e.preventDefault();
+          this.cutSubtree();
+        }
+        return;
+      }
+
+      // Ctrl/Cmd+V — paste subtree
+      if (mod && e.key === 'v' && !inEdit) {
+        e.preventDefault();
+        this.pasteSubtree();
         return;
       }
 
@@ -1886,6 +1912,62 @@ class App {
     this.render();
   }
 
+  copySubtree() {
+    const node = this.findNode(this.selectedId);
+    if (!node) return;
+    this._clipboard = node.toJSON();
+    const label = node.label.length > 20 ? node.label.slice(0, 20) + '...' : node.label;
+    this.toast(`Copied subtree "${label}"`);
+  }
+
+  cutSubtree() {
+    const node = this.findNode(this.selectedId);
+    if (!node) return;
+    this._clipboard = node.toJSON();
+    const label = node.label.length > 20 ? node.label.slice(0, 20) + '...' : node.label;
+    this.saveState();
+    // Remove the subtree (same as deleteSelected)
+    const removedIds = new Set();
+    const collectIds = (n) => { removedIds.add(n.id); n.children.forEach(collectIds); };
+    collectIds(node);
+    if (!node.parent) {
+      this.root = null;
+    } else {
+      const idx = node.parent.children.indexOf(node);
+      node.parent.children.splice(idx, 1);
+    }
+    this.arrows = this.arrows.filter(a => !removedIds.has(a.fromId) && !removedIds.has(a.toId));
+    this.selectedId = null;
+    this.selectedArrowIdx = null;
+    this.render();
+    this.toast(`Cut subtree "${label}"`);
+  }
+
+  pasteSubtree() {
+    if (!this._clipboard) { this.toast('Nothing to paste'); return; }
+    this.commitEdit();
+    this.saveState();
+    // Paste as child of selected node, or as new root if nothing selected
+    const parent = this.selectedId ? this.findNode(this.selectedId) : null;
+    const pasted = TreeNode.fromJSON(this._clipboard, parent);
+    // Assign fresh IDs to all pasted nodes to avoid duplicates
+    const reassignIds = (n) => { n.id = genId(); n.children.forEach(reassignIds); };
+    reassignIds(pasted);
+    if (parent) {
+      parent.children.push(pasted);
+    } else if (!this.root) {
+      this.root = pasted;
+      pasted.parent = null;
+    } else {
+      // No node selected but tree exists — paste as child of root
+      pasted.parent = this.root;
+      this.root.children.push(pasted);
+    }
+    this.select(pasted.id);
+    this.render();
+    this.toast('Pasted subtree');
+  }
+
   select(id) {
     this.selectedId = id;
     this.selectedIds.clear();
@@ -2331,7 +2413,12 @@ class App {
       { label: 'Edit Label', action: () => this.startEditing(id) },
       { label: 'Add Child', action: () => { this.selectedId = id; this.addChildToSelected(); } },
       { label: 'Add Triangle', action: () => { this.selectedId = id; this.addTriangleChild(); } },
+      { label: 'Copy Subtree', action: () => { this.selectedId = id; this.copySubtree(); } },
+      { label: 'Cut Subtree', action: () => { this.selectedId = id; this.cutSubtree(); } },
     ];
+    if (this._clipboard) {
+      items.push({ label: 'Paste Subtree', action: () => { this.selectedId = id; this.pasteSubtree(); } });
+    }
 
     if (node && node.parent) {
       const siblings = node.parent.children;

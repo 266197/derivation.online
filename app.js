@@ -725,6 +725,7 @@ class App {
   cancelArrowMode() {
     this.arrowMode = null;
     this.arrowSource = null;
+    this._arrowSourceAnchor = null;
     document.getElementById('arrow-banner').style.display = 'none';
     document.getElementById('btn-arrow').classList.remove('active');
     this.render();
@@ -772,9 +773,23 @@ class App {
     }
   }
 
-  handleArrowClick(nodeId) {
+  handleArrowClick(nodeId, e) {
+    // Determine which anchor edge the user clicked closest to
+    const node = this.findNode(nodeId);
+    let anchor = 'bottom';
+    if (node && e) {
+      const pt = this.svgPoint(e);
+      let bestDist = Infinity;
+      for (const a of ['top', 'bottom', 'left', 'right']) {
+        const p = getAnchorPos(node, a);
+        const d = (pt.x - p.x) ** 2 + (pt.y - p.y) ** 2;
+        if (d < bestDist) { bestDist = d; anchor = a; }
+      }
+    }
+
     if (this.arrowMode === 'pick-source') {
       this.arrowSource = nodeId;
+      this._arrowSourceAnchor = anchor;
       this.arrowMode = 'pick-target';
       document.getElementById('arrow-step').textContent = 'Step 2: Click the target node';
       this.render();
@@ -784,7 +799,11 @@ class App {
         return;
       }
       this.saveState();
-      this.arrows.push({ fromId: this.arrowSource, toId: nodeId, labelRuns: [], fromAnchor: 'bottom', toAnchor: 'bottom' });
+      this.arrows.push({
+        fromId: this.arrowSource, toId: nodeId, labelRuns: [],
+        fromAnchor: this._arrowSourceAnchor || 'bottom', toAnchor: anchor
+      });
+      this._arrowSourceAnchor = null;
       this.cancelArrowMode();
       this.toast('Arrow added');
     }
@@ -2510,7 +2529,7 @@ class App {
         if (e.button !== 0) return; // left button only
         e.stopPropagation();
         if (this.arrowMode) {
-          this.handleArrowClick(n.id);
+          this.handleArrowClick(n.id, e);
           return;
         }
         const startX = e.clientX, startY = e.clientY;

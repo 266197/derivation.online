@@ -473,7 +473,7 @@ class TreeNode {
   }
 
   toJSON() {
-    const o = { runs: this.runs, children: this.children.map(c => c.toJSON()) };
+    const o = { id: this.id, runs: this.runs, children: this.children.map(c => c.toJSON()) };
     if (this.triangle) o.triangle = true;
     if (this.branchColor) o.branchColor = this.branchColor;
     if (this.borderColor) o.borderColor = this.borderColor;
@@ -488,6 +488,7 @@ class TreeNode {
 
   static fromJSON(obj, parent = null) {
     const n = new TreeNode('', parent);
+    if (obj.id != null) n.id = obj.id;
     n.runs = obj.runs || defaultRuns(obj.label || '');
     n.triangle = obj.triangle || false;
     n.branchColor = obj.branchColor || null;

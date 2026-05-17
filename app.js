@@ -621,6 +621,7 @@ class App {
 
   _restoreSnapshot(state) {
     this.root = state.tree ? TreeNode.fromJSON(state.tree) : null;
+    this._syncNextId();
     this.arrows = state.arrows ? JSON.parse(JSON.stringify(state.arrows)) : [];
     if (state.fontFamily && state.fontFamily !== getFontFamily()) {
       setFontFamily(state.fontFamily);

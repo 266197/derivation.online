@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Merge — Documentation</title>
+<title>derivation — Documentation</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -142,7 +142,7 @@
 <body>
 
 <header>
-  <h1>Merge <span>Documentation</span></h1>
+  <h1>derivation <span>Documentation</span></h1>
   <a href="index.html" class="back-link">&larr; Back to app</a>
 </header>
 
@@ -169,7 +169,7 @@
 <!-- ─── Getting Started ─── -->
 <section id="getting-started">
   <h2>Getting Started</h2>
-  <p>Merge is a visual syntax tree editor for linguistics. You can build, style, and export publication-ready tree diagrams directly in your browser.</p>
+  <p>derivation is a visual syntax tree editor for linguistics. You can build, style, and export publication-ready tree diagrams directly in your browser.</p>
 
   <h3>Quick start</h3>
   <ul class="feature-list">
@@ -197,6 +197,8 @@
     <li><strong>Add Triangle</strong> — Adds a terminal child with triangle notation, used to indicate dominance without showing internal structure. Shortcut: <kbd>T</kbd></li>
     <li><strong>Delete</strong> — Removes the selected node and its entire subtree. Shortcut: <kbd>Delete</kbd> or <kbd>Backspace</kbd></li>
     <li><strong>Reorder siblings</strong> — Right-click a node and choose <strong>Move Left</strong> or <strong>Move Right</strong> to reorder among siblings.</li>
+    <li><strong>Drag to reposition</strong> — Click and drag any node to move it (and its children) from the automatic layout position. Hold <kbd>Shift</kbd> while dragging to constrain movement to horizontal or vertical only.</li>
+    <li><strong>Reset position</strong> — Right-click a repositioned node and choose <strong>Reset Position</strong> to snap it back to the automatic layout.</li>
   </ul>
 
   <div class="tip">
@@ -214,8 +216,10 @@
   <ul class="feature-list">
     <li><strong>Bold</strong> — <kbd>Cmd/Ctrl</kbd> + <kbd>B</kbd></li>
     <li><strong>Italic</strong> — <kbd>Cmd/Ctrl</kbd> + <kbd>I</kbd></li>
+    <li><strong>Underline</strong> — <kbd>Cmd/Ctrl</kbd> + <kbd>U</kbd></li>
     <li><strong>Subscript</strong> — format bar button (X<sub>2</sub>)</li>
     <li><strong>Superscript</strong> — format bar button (X<sup>2</sup>)</li>
+    <li><strong>Small caps</strong> — format bar button (Sc)</li>
     <li><strong>Strikethrough</strong> — format bar button (<s>S</s>)</li>
     <li><strong>Text color</strong> — pick from preset swatches or use the custom color picker</li>
   </ul>
@@ -316,7 +320,7 @@
 <!-- ─── Custom Colors ─── -->
 <section id="color-picker">
   <h2>Custom Colors</h2>
-  <p>Every color palette in Merge includes a rainbow button that opens the custom color picker.</p>
+  <p>Every color palette in derivation includes a rainbow button that opens the custom color picker.</p>
 
   <h3>Using the picker</h3>
   <ul class="feature-list">
@@ -344,7 +348,7 @@
 
   <h3>PNG</h3>
   <ul class="feature-list">
-    <li>High-resolution (8x scale) with transparent background</li>
+    <li>High-resolution (16x scale) with transparent background</li>
     <li>Auto-cropped to content with padding</li>
     <li>Ideal for presentations, papers, and social media</li>
   </ul>
@@ -375,7 +379,7 @@
   <ul class="feature-list">
     <li><strong>Save</strong> — downloads your project as a <code>.json</code> file containing the full tree, arrows, and settings</li>
     <li><strong>Load</strong> — open a previously saved <code>.json</code> or <code>.merge</code> file</li>
-    <li><strong>Auto-save</strong> — your work is automatically saved to your browser's local storage on every change. When you reopen Merge, your last tree is restored.</li>
+    <li><strong>Auto-save</strong> — your work is automatically saved to your browser's local storage on every change. When you reopen derivation, your last tree is restored.</li>
   </ul>
 </section>
 
@@ -415,6 +419,7 @@
   <div class="shortcut-grid">
     <div class="shortcut-row"><span>Bold</span><span class="keys"><kbd>Cmd/Ctrl</kbd> + <kbd>B</kbd></span></div>
     <div class="shortcut-row"><span>Italic</span><span class="keys"><kbd>Cmd/Ctrl</kbd> + <kbd>I</kbd></span></div>
+    <div class="shortcut-row"><span>Underline</span><span class="keys"><kbd>Cmd/Ctrl</kbd> + <kbd>U</kbd></span></div>
     <div class="shortcut-row"><span>New line</span><span class="keys"><kbd>Shift</kbd> + <kbd>Enter</kbd></span></div>
     <div class="shortcut-row"><span>Confirm edit</span><span class="keys"><kbd>Enter</kbd></span></div>
     <div class="shortcut-row"><span>Cancel edit</span><span class="keys"><kbd>Esc</kbd></span></div>

@@ -2284,7 +2284,7 @@ class App {
     const url = URL.createObjectURL(blob);
 
     const canvas = document.createElement('canvas');
-    const scale = 8;
+    const scale = 16;
     canvas.width = cropW * scale;
     canvas.height = cropH * scale;
     const ctx = canvas.getContext('2d');
@@ -2405,122 +2405,6 @@ class App {
     this.toast('Exported to SVG');
   }
 
-  exportPdf() {
-    if (!this.root) return;
-
-    const pad = 20;
-    const scale = 2; // render at 2x for crisp output
-    const allNodes = [];
-    function collect(n) { allNodes.push(n); n.children.forEach(collect); }
-    collect(this.root);
-
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    allNodes.forEach(n => {
-      minX = Math.min(minX, n.x - n.w / 2);
-      maxX = Math.max(maxX, n.x + n.w / 2);
-      minY = Math.min(minY, n.y);
-      maxY = Math.max(maxY, n.y + n.h);
-    });
-
-    this.svg.querySelectorAll('.arrow-path').forEach(pathEl => {
-      try {
-        const box = pathEl.getBBox();
-        minX = Math.min(minX, box.x);
-        maxX = Math.max(maxX, box.x + box.width);
-        minY = Math.min(minY, box.y);
-        maxY = Math.max(maxY, box.y + box.height);
-      } catch(e) {}
-    });
-
-    const cropX = minX - pad, cropY = minY - pad;
-    const cropW = maxX - minX + pad * 2, cropH = maxY - minY + pad * 2;
-
-    const svgEl = this.svg.cloneNode(true);
-    svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
-    svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle').forEach(el => el.remove());
-    svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
-    svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
-
-    svgEl.setAttribute('viewBox', `${cropX} ${cropY} ${cropW} ${cropH}`);
-    svgEl.setAttribute('width', cropW * scale);
-    svgEl.setAttribute('height', cropH * scale);
-    svgEl.style.minWidth = '';
-    svgEl.style.minHeight = '';
-    svgEl.style.width = '';
-    svgEl.style.height = '';
-    svgEl.removeAttribute('id');
-
-    const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-    styleEl.textContent = `
-      .node-rect { fill: none; stroke: none; }
-      .node-label { font-family: "Times New Roman", Georgia, serif; font-size: 12px;
-        fill: #333; text-anchor: middle; dominant-baseline: central; }
-      .branch-line { stroke: #333; stroke-width: 1.2; stroke-linecap: round; }
-      .branch-fan { stroke: #333; stroke-width: 1.2; fill: none; stroke-linejoin: miter; stroke-miterlimit: 10; stroke-linecap: round; }
-      .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
-      .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
-      .arrow-head { fill: #333; stroke: none; }
-      .arrow-label { font-family: "Times New Roman", Georgia, serif; font-size: 11px; fill: #333; text-anchor: middle; }
-    `;
-    svgEl.insertBefore(styleEl, svgEl.firstChild);
-
-    // White background
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bg.setAttribute('x', cropX);
-    bg.setAttribute('y', cropY);
-    bg.setAttribute('width', cropW);
-    bg.setAttribute('height', cropH);
-    bg.setAttribute('fill', '#fff');
-    svgEl.insertBefore(bg, styleEl.nextSibling);
-
-    // Apply per-node colors
-    svgEl.querySelectorAll('.node-rect[data-border-color]').forEach(rect => {
-      rect.style.stroke = rect.dataset.borderColor;
-      rect.style.strokeWidth = '1.5';
-    });
-    svgEl.querySelectorAll('.node-rect[data-fill-color]').forEach(rect => {
-      rect.style.fill = rect.dataset.fillColor;
-    });
-    svgEl.querySelectorAll('.triangle-line[data-fill-color]').forEach(el => {
-      el.style.fill = el.dataset.fillColor;
-    });
-
-    // Render SVG to canvas, then to PDF
-    const svgStr = new XMLSerializer().serializeToString(svgEl);
-    const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(svgBlob);
-
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = cropW * scale;
-      canvas.height = cropH * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-
-      // Create PDF with jsPDF — page sized to fit the tree
-      const { jsPDF } = window.jspdf;
-      const pdfW = cropW * 0.75; // px to pt (72/96)
-      const pdfH = cropH * 0.75;
-      const pdf = new jsPDF({
-        orientation: cropW > cropH ? 'landscape' : 'portrait',
-        unit: 'pt',
-        format: [pdfW, pdfH]
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
-      pdf.save('merge-tree.pdf');
-      this.toast('PDF downloaded');
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      this.toast('PDF export failed');
-    };
-    img.src = url;
-  }
 }
 
 const app = new App();

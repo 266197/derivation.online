@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Merge — Syntactic Tree Builder</title>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -831,7 +830,6 @@ button.active {
     <div class="export-dropdown" id="export-dropdown" style="display:none">
       <button onclick="app.exportPng(); app.closeExportMenu()">PNG<span class="export-hint">Transparent</span></button>
       <button onclick="app.exportSvg(); app.closeExportMenu()">SVG</button>
-      <button onclick="app.exportPdf(); app.closeExportMenu()">PDF</button>
     </div>
   </div>
   <a href="docs.html" target="_blank" style="font-size:11px;color:#998e80;text-decoration:none;margin-left:8px;font-family:-apple-system,sans-serif;" title="Documentation">Docs</a>

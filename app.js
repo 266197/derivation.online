@@ -718,6 +718,7 @@ class App {
       document.getElementById('arrow-banner').style.display = 'flex';
       document.getElementById('arrow-step').textContent = 'Step 1: Click the source node';
       document.getElementById('btn-arrow').classList.add('active');
+      this.svg.classList.add('arrow-mode-active');
       this.render();
     }
   }
@@ -728,6 +729,7 @@ class App {
     this._arrowSourceAnchor = null;
     document.getElementById('arrow-banner').style.display = 'none';
     document.getElementById('btn-arrow').classList.remove('active');
+    this.svg.classList.remove('arrow-mode-active');
     this.render();
   }
 

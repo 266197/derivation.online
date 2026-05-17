@@ -36,6 +36,8 @@ class App {
     this.alignBottom = false;
     this._clipboard = null;  // subtree JSON for copy/cut-paste
     this._draggingNodeId = null;  // node being dragged (for snap guides)
+    this.zoomLevel = 1;
+    this._rawZoom = 1;  // tracks intended zoom before snap
     this.svg = document.getElementById('tree-canvas');
     this.wrapper = document.getElementById('canvas-wrapper');
     this.emptyState = document.getElementById('empty-state');
@@ -62,6 +64,18 @@ class App {
       if (e.target === this.wrapper) deselectHandler(e);
     });
 
+    // Ctrl/Cmd + scroll wheel / trackpad pinch zoom
+    this.wrapper.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        // Trackpad pinch sends small deltaY values; mouse wheel sends large ones.
+        // Scale proportionally for smooth trackpad zoom, cap for mouse wheel.
+        const raw = -e.deltaY;
+        const step = Math.sign(raw) * Math.min(Math.abs(raw) * 0.005, 0.1);
+        this.setZoom(this._rawZoom + step, e);
+      }
+    }, { passive: false });
+
     document.addEventListener('keydown', (e) => {
       const mod = e.metaKey || e.ctrlKey;
       const inEdit = e.target.closest('.inline-edit') || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
@@ -79,6 +93,23 @@ class App {
         if (inEdit) return;
         e.preventDefault();
         if (e.shiftKey) this.redo(); else this.undo();
+        return;
+      }
+
+      // Zoom: Ctrl/Cmd + / - / 0
+      if (mod && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        this.zoomIn();
+        return;
+      }
+      if (mod && e.key === '-') {
+        e.preventDefault();
+        this.zoomOut();
+        return;
+      }
+      if (mod && e.key === '0') {
+        e.preventDefault();
+        this.zoomReset();
         return;
       }
 
@@ -201,6 +232,7 @@ class App {
     });
 
     this._initFontSelectors();
+    document.getElementById('zoom-level').addEventListener('dblclick', () => this.zoomReset());
     this._restoreAutoSave();
     this.render();
   }
@@ -254,12 +286,12 @@ class App {
     this.wrapper.style.setProperty('--tree-font-size', getFontSize() + 'px');
   }
 
-  // Convert mouse event to SVG coordinates (accounts for scroll)
+  // Convert mouse event to SVG coordinates (accounts for scroll and zoom)
   svgPoint(e) {
     const wr = this.wrapper.getBoundingClientRect();
     return {
-      x: e.clientX - wr.left + this.wrapper.scrollLeft,
-      y: e.clientY - wr.top + this.wrapper.scrollTop
+      x: (e.clientX - wr.left + this.wrapper.scrollLeft) / this.zoomLevel,
+      y: (e.clientY - wr.top + this.wrapper.scrollTop) / this.zoomLevel
     };
   }
 
@@ -840,20 +872,18 @@ class App {
     const existing = document.querySelector('.inline-edit');
     if (existing) existing.remove();
 
-    const svgRect = this.svg.getBoundingClientRect();
-    const wrapperRect = this.wrapper.getBoundingClientRect();
-
     const div = document.createElement('div');
     div.className = 'inline-edit';
     div.contentEditable = 'true';
     div.spellcheck = false;
     div.innerHTML = runsToHTML(node.runs);
 
-    div.style.left = (svgRect.left - wrapperRect.left + this.wrapper.scrollLeft + (node.x - node.w / 2 - 6)) + 'px';
-    div.style.top = (svgRect.top - wrapperRect.top + this.wrapper.scrollTop + (node.y - 3)) + 'px';
-    div.style.minWidth = Math.max((node.w + 24), 60) + 'px';
-    div.style.minHeight = (node.h + 6) + 'px';
-    div.style.fontSize = getFontSize() + 'px';
+    const z = this.zoomLevel;
+    div.style.left = ((node.x - node.w / 2 - 6) * z) + 'px';
+    div.style.top = ((node.y - 3) * z) + 'px';
+    div.style.minWidth = Math.max((node.w + 24) * z, 60) + 'px';
+    div.style.minHeight = ((node.h + 6) * z) + 'px';
+    div.style.fontSize = (getFontSize() * z) + 'px';
 
     div.addEventListener('keydown', (e) => {
       // Shift+Enter or just Enter inserts a new line; plain Enter without shift commits
@@ -920,23 +950,21 @@ class App {
     const existing = document.querySelector('.inline-edit');
     if (existing) existing.remove();
 
-    const svgRect = this.svg.getBoundingClientRect();
-    const wrapperRect = this.wrapper.getBoundingClientRect();
-
     const div = document.createElement('div');
     div.className = 'inline-edit';
     div.contentEditable = 'true';
     div.spellcheck = false;
-    div.style.fontSize = Math.round(getFontSize() * 0.75) + 'px';
+    const z = this.zoomLevel;
+    div.style.fontSize = Math.round(getFontSize() * 0.75 * z) + 'px';
     div.style.textAlign = 'center';
 
     const runs = getArrowLabelRuns(arrow);
     div.innerHTML = runs.length > 0 ? runsToHTML(runs) : '';
 
-    div.style.left = (svgRect.left - wrapperRect.left + this.wrapper.scrollLeft + (labelX - 40)) + 'px';
-    div.style.top = (svgRect.top - wrapperRect.top + this.wrapper.scrollTop + (labelY - 8)) + 'px';
-    div.style.minWidth = '80px';
-    div.style.minHeight = '18px';
+    div.style.left = ((labelX - 40) * z) + 'px';
+    div.style.top = ((labelY - 8) * z) + 'px';
+    div.style.minWidth = (80 * z) + 'px';
+    div.style.minHeight = (18 * z) + 'px';
 
     div.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -2264,6 +2292,52 @@ class App {
     });
   }
 
+  // --- Zoom ---
+
+  setZoom(level, e) {
+    this._rawZoom = Math.max(0.2, Math.min(3, level));
+    let newZoom = Math.round(this._rawZoom * 100) / 100;
+    // Snap to 100% only if raw intent is within the snap zone
+    // Once raw moves past the zone, snap releases immediately
+    if (Math.abs(this._rawZoom - 1) < 0.03) {
+      newZoom = 1;
+    }
+    if (newZoom === this.zoomLevel) return;
+
+    // Zoom toward the cursor position (or center of wrapper)
+    let anchorX, anchorY;
+    if (e) {
+      const wr = this.wrapper.getBoundingClientRect();
+      anchorX = e.clientX - wr.left;
+      anchorY = e.clientY - wr.top;
+    } else {
+      anchorX = this.wrapper.clientWidth / 2;
+      anchorY = this.wrapper.clientHeight / 2;
+    }
+
+    // SVG coordinate under the anchor before zoom
+    const svgX = (anchorX + this.wrapper.scrollLeft) / this.zoomLevel;
+    const svgY = (anchorY + this.wrapper.scrollTop) / this.zoomLevel;
+
+    this.zoomLevel = newZoom;
+    if (this.root) this.render();
+
+    // Adjust scroll so the same SVG point stays under the anchor
+    this.wrapper.scrollLeft = svgX * newZoom - anchorX;
+    this.wrapper.scrollTop = svgY * newZoom - anchorY;
+
+    this._updateZoomDisplay();
+  }
+
+  zoomIn() { this.setZoom(this.zoomLevel + 0.1); }
+  zoomOut() { this.setZoom(this.zoomLevel - 0.1); }
+  zoomReset() { this.setZoom(1); }
+
+  _updateZoomDisplay() {
+    const el = document.getElementById('zoom-level');
+    if (el) el.textContent = Math.round(this.zoomLevel * 100) + '%';
+  }
+
   render() {
     this.svg.innerHTML = '';
     this.emptyState.style.display = this.root ? 'none' : 'block';
@@ -2294,11 +2368,9 @@ class App {
       treeMaxX = Math.max(treeMaxX, n.x + n.w / 2);
     });
     const treeW = treeMaxX - treeMinX;
-    const wrapperW = this.wrapper.clientWidth;
-    if (treeW + 80 < wrapperW) {
-      const offsetX = (wrapperW - treeW) / 2 - treeMinX;
-      allNodes.forEach(n => { n.x += offsetX; });
-    }
+    const wrapperW = this.wrapper.clientWidth / this.zoomLevel;
+    const offsetX = Math.max(40, (wrapperW - treeW) / 2) - treeMinX;
+    allNodes.forEach(n => { n.x += offsetX; });
 
     const canvasPad = Math.max(60, getLevelGap());
     let maxX = 0, maxY = 0;
@@ -2341,10 +2413,14 @@ class App {
         maxY = Math.max(maxY, arrow.elbowMidValue3 + 60);
       }
     });
-    this.svg.setAttribute('width', maxX);
-    this.svg.setAttribute('height', maxY);
-    this.svg.style.minWidth = maxX + 'px';
-    this.svg.style.minHeight = maxY + 'px';
+    // Use viewBox for zoom: SVG coordinates stay unchanged, CSS size = scaled
+    this.svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`);
+    const scaledW = maxX * this.zoomLevel;
+    const scaledH = maxY * this.zoomLevel;
+    this.svg.setAttribute('width', scaledW);
+    this.svg.setAttribute('height', scaledH);
+    this.svg.style.minWidth = scaledW + 'px';
+    this.svg.style.minHeight = scaledH + 'px';
 
     // branch lines — draw combined fan paths for sharp vertices
     this._deferredTriangleGroups = [];
@@ -2548,8 +2624,8 @@ class App {
           } else if (!ev.shiftKey) {
             constrainAxis = null;
           }
-          const mx = constrainAxis === 'y' ? 0 : ev.movementX;
-          const my = constrainAxis === 'x' ? 0 : ev.movementY;
+          const mx = constrainAxis === 'y' ? 0 : ev.movementX / this.zoomLevel;
+          const my = constrainAxis === 'x' ? 0 : ev.movementY / this.zoomLevel;
           rawOffsetX += mx;
           rawOffsetY += my;
           n.offsetX = rawOffsetX;

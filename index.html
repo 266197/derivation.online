@@ -140,6 +140,49 @@ svg#tree-canvas {
   min-height: 100%;
   cursor: default;
 }
+
+.zoom-controls {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255,254,250,0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid #d4cfc7;
+  border-radius: 6px;
+  padding: 2px 4px;
+  z-index: 10;
+  user-select: none;
+  box-shadow: 0 1px 4px rgba(80,60,30,0.08);
+}
+.zoom-controls button {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: #6b5740;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.zoom-controls button:hover {
+  background: #ede8e0;
+}
+.zoom-controls span {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  color: #6b5740;
+  min-width: 38px;
+  text-align: center;
+  cursor: default;
+}
 svg#tree-canvas.arrow-mode-active {
   cursor: crosshair;
 }
@@ -1111,6 +1154,11 @@ button.active {
       <p>Click "Add Root" or type bracket notation below</p>
     </div>
   </div>
+  <div class="zoom-controls" id="zoom-controls">
+    <button onclick="app.zoomOut()" title="Zoom out (Ctrl+−)">−</button>
+    <span id="zoom-level" title="Double-click to reset">100%</span>
+    <button onclick="app.zoomIn()" title="Zoom in (Ctrl++)">+</button>
+  </div>
 </div>
 
 <div class="bracket-bar">
@@ -1178,6 +1226,9 @@ button.active {
       <div class="shortcut-row"><span>Copy subtree</span><span class="shortcut-keys"><kbd class="mod-key">Ctrl</kbd><span class="plus">+</span><kbd>C</kbd></span></div>
       <div class="shortcut-row"><span>Cut subtree</span><span class="shortcut-keys"><kbd class="mod-key">Ctrl</kbd><span class="plus">+</span><kbd>X</kbd></span></div>
       <div class="shortcut-row"><span>Paste subtree</span><span class="shortcut-keys"><kbd class="mod-key">Ctrl</kbd><span class="plus">+</span><kbd>V</kbd></span></div>
+      <div class="shortcut-row"><span>Zoom in</span><span class="shortcut-keys"><kbd class="mod-key">Ctrl</kbd><span class="plus">+</span><kbd>=</kbd></span></div>
+      <div class="shortcut-row"><span>Zoom out</span><span class="shortcut-keys"><kbd class="mod-key">Ctrl</kbd><span class="plus">+</span><kbd>-</kbd></span></div>
+      <div class="shortcut-row"><span>Reset zoom</span><span class="shortcut-keys"><kbd class="mod-key">Ctrl</kbd><span class="plus">+</span><kbd>0</kbd></span></div>
     </div>
     <div class="shortcut-section">
       <h3>Selection</h3>

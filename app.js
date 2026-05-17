@@ -2822,10 +2822,28 @@ class App {
       el.style.fill = el.dataset.fillColor;
     });
 
-    const svgStr = new XMLSerializer().serializeToString(svgEl);
-
-    // Determine orientation from tree aspect ratio
+    // Determine orientation and fit SVG to A4 printable area
     const landscape = cropW > cropH;
+    // A4 printable area with 15mm margins, in mm
+    const availWmm = landscape ? 267 : 180;
+    const availHmm = landscape ? 180 : 267;
+    // 1mm ≈ 3.7795px at 96dpi
+    const mmToPx = 3.7795;
+    const availWpx = availWmm * mmToPx;
+    const availHpx = availHmm * mmToPx;
+    // Scale to fit
+    const fitRatio = Math.min(availWpx / cropW, availHpx / cropH);
+    const svgWpx = Math.round(cropW * fitRatio);
+    const svgHpx = Math.round(cropH * fitRatio);
+
+    svgEl.setAttribute('width', svgWpx);
+    svgEl.setAttribute('height', svgHpx);
+    svgEl.style.width = svgWpx + 'px';
+    svgEl.style.height = svgHpx + 'px';
+    svgEl.style.minWidth = '';
+    svgEl.style.minHeight = '';
+
+    const svgStr = new XMLSerializer().serializeToString(svgEl);
 
     // Open a print window with the SVG centered on the page
     const printWin = window.open('', '_blank', 'width=800,height=600');
@@ -2843,14 +2861,14 @@ class App {
     size: A4 ${landscape ? 'landscape' : 'portrait'};
     margin: 15mm;
   }
-  * { margin: 0; padding: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
   }
   svg {
-    max-width: 100%; max-height: 100%;
-    width: auto; height: auto;
+    display: block;
   }
   @media screen {
     body { background: #f5f5f5; padding: 20px; }

@@ -35,6 +35,7 @@ class App {
     this.editingArrowIdx = null;
     this.alignBottom = false;
     this._clipboard = null;  // subtree JSON for copy/cut-paste
+    this._draggingNodeId = null;  // node being dragged (for snap guides)
     this.svg = document.getElementById('tree-canvas');
     this.wrapper = document.getElementById('canvas-wrapper');
     this.emptyState = document.getElementById('empty-state');
@@ -2439,6 +2440,8 @@ class App {
         let isDrag = false;
         let dragSaved = false;
         let constrainAxis = null; // null | 'x' | 'y'
+        // Raw offsets track true cursor position; snap adjusts what's rendered
+        let rawOffsetX = n.offsetX, rawOffsetY = n.offsetY;
 
         const onMove = (ev) => {
           const dx = ev.clientX - startX, dy = ev.clientY - startY;
@@ -2446,6 +2449,7 @@ class App {
           if (!isDrag) {
             isDrag = true;
             this.select(n.id);
+            this._draggingNodeId = n.id;
             // Lock axis on drag start if Shift is held
             if (ev.shiftKey) {
               constrainAxis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
@@ -2460,8 +2464,12 @@ class App {
           }
           const mx = constrainAxis === 'y' ? 0 : ev.movementX;
           const my = constrainAxis === 'x' ? 0 : ev.movementY;
-          n.offsetX += mx;
-          n.offsetY += my;
+          rawOffsetX += mx;
+          rawOffsetY += my;
+          n.offsetX = rawOffsetX;
+          n.offsetY = rawOffsetY;
+          // Snap to horizontal/vertical branch alignment
+          this._applyBranchSnap(n);
           this._renderDrag();
         };
 
@@ -2473,6 +2481,7 @@ class App {
         const onUp = () => {
           document.removeEventListener('pointermove', onMove);
           document.removeEventListener('pointerup', onUp);
+          this._draggingNodeId = null;
           if (isDrag) {
             // Block the click event that follows pointerup
             g.addEventListener('click', onClick, { once: true, capture: true });
@@ -2528,9 +2537,94 @@ class App {
       }
     }
 
+    // Snap guides during node drag
+    if (this._draggingNodeId) {
+      this._drawSnapGuides(this._draggingNodeId);
+    }
+
     this.updateToolbar();
     this.updateArrowFormatBar();
     this._autoSave();
+  }
+
+  _applyBranchSnap(node) {
+    const SNAP = 8; // px threshold
+    // Compute positions with current offsets
+    layoutTree(this.root, this.alignBottom);
+    applyOffsets(this.root);
+
+    let snappedX = false, snappedY = false;
+
+    // Collect all branch connections involving this node
+    const pairs = [];
+    if (node.parent) {
+      const pp = getAnchorPos(node.parent, node.branchParentAnchor || 'bottom');
+      const cp = getAnchorPos(node, node.branchChildAnchor || 'top');
+      pairs.push({ dx: pp.x - cp.x, dy: pp.y - cp.y });
+    }
+    node.children.forEach(c => {
+      const pp = getAnchorPos(node, c.branchParentAnchor || 'bottom');
+      const cp = getAnchorPos(c, c.branchChildAnchor || 'top');
+      pairs.push({ dx: cp.x - pp.x, dy: cp.y - pp.y });
+    });
+
+    // Apply the closest snap (first one within threshold) per axis
+    for (const { dx, dy } of pairs) {
+      if (!snappedX && Math.abs(dx) > 0 && Math.abs(dx) < SNAP) {
+        node.offsetX += dx;
+        snappedX = true;
+      }
+      if (!snappedY && Math.abs(dy) > 0 && Math.abs(dy) < SNAP) {
+        node.offsetY += dy;
+        snappedY = true;
+      }
+      if (snappedX && snappedY) break;
+    }
+  }
+
+  _drawSnapGuides(nodeId) {
+    const node = this.findNode(nodeId);
+    if (!node) return;
+
+    // Collect all branch connections involving this node
+    const pairs = [];
+    if (node.parent) {
+      const pp = getAnchorPos(node.parent, node.branchParentAnchor || 'bottom');
+      const cp = getAnchorPos(node, node.branchChildAnchor || 'top');
+      pairs.push({ p1: pp, p2: cp });
+    }
+    node.children.forEach(c => {
+      const pp = getAnchorPos(node, c.branchParentAnchor || 'bottom');
+      const cp = getAnchorPos(c, c.branchChildAnchor || 'top');
+      pairs.push({ p1: pp, p2: cp });
+    });
+
+    pairs.forEach(({ p1, p2 }) => {
+      const dx = Math.abs(p1.x - p2.x);
+      const dy = Math.abs(p1.y - p2.y);
+
+      // Vertical alignment guide
+      if (dx < 1) {
+        const minY = Math.min(p1.y, p2.y) - 20;
+        const maxY = Math.max(p1.y, p2.y) + 20;
+        const guide = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        guide.setAttribute('x1', p1.x); guide.setAttribute('y1', minY);
+        guide.setAttribute('x2', p1.x); guide.setAttribute('y2', maxY);
+        guide.setAttribute('class', 'snap-guide');
+        this.svg.appendChild(guide);
+      }
+
+      // Horizontal alignment guide
+      if (dy < 1) {
+        const minX = Math.min(p1.x, p2.x) - 20;
+        const maxX = Math.max(p1.x, p2.x) + 20;
+        const guide = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        guide.setAttribute('x1', minX); guide.setAttribute('y1', p1.y);
+        guide.setAttribute('x2', maxX); guide.setAttribute('y2', p1.y);
+        guide.setAttribute('class', 'snap-guide');
+        this.svg.appendChild(guide);
+      }
+    });
   }
 
   showContextMenu(x, y, id) {
@@ -2773,7 +2867,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide, .snap-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 
@@ -2870,7 +2964,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide, .snap-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 
@@ -2987,7 +3081,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide, .snap-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 

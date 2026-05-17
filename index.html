@@ -140,8 +140,15 @@ svg#tree-canvas {
   min-height: 100%;
   cursor: default;
 }
+svg#tree-canvas.arrow-mode-active {
+  cursor: crosshair;
+}
 
-.node-group { cursor: pointer; }
+.node-group { cursor: grab; }
+.node-group:active { cursor: grabbing; }
+.node-group .node-label { cursor: text; }
+.arrow-mode-active .node-group { cursor: crosshair; }
+.arrow-mode-active .node-group .node-label { cursor: crosshair; }
 
 .node-rect {
   fill: transparent;

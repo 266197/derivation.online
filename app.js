@@ -2239,6 +2239,7 @@ class App {
         const startX = e.clientX, startY = e.clientY;
         let isDrag = false;
         let dragSaved = false;
+        let constrainAxis = null; // null | 'x' | 'y'
 
         const onMove = (ev) => {
           const dx = ev.clientX - startX, dy = ev.clientY - startY;
@@ -2246,11 +2247,22 @@ class App {
           if (!isDrag) {
             isDrag = true;
             this.select(n.id);
+            // Lock axis on drag start if Shift is held
+            if (ev.shiftKey) {
+              constrainAxis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+            }
           }
           if (!dragSaved) { this.saveState(); dragSaved = true; }
-          // Convert pixel delta to SVG units (1:1 since no zoom)
-          n.offsetX += ev.movementX;
-          n.offsetY += ev.movementY;
+          // Shift pressed mid-drag: lock to dominant axis from origin
+          if (ev.shiftKey && !constrainAxis) {
+            constrainAxis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+          } else if (!ev.shiftKey) {
+            constrainAxis = null;
+          }
+          const mx = constrainAxis === 'y' ? 0 : ev.movementX;
+          const my = constrainAxis === 'x' ? 0 : ev.movementY;
+          n.offsetX += mx;
+          n.offsetY += my;
           this._renderDrag();
         };
 

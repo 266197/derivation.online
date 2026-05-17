@@ -187,6 +187,11 @@ svg#tree-canvas.arrow-mode-active {
   cursor: crosshair;
 }
 
+.canvas-wrapper.pan-mode,
+.canvas-wrapper.pan-mode * { cursor: grab !important; }
+.canvas-wrapper.panning,
+.canvas-wrapper.panning * { cursor: grabbing !important; }
+
 .node-group { cursor: grab; }
 .node-group:active { cursor: grabbing; }
 .arrow-mode-active .node-group { cursor: crosshair; }
@@ -1060,6 +1065,7 @@ button.active {
   <div class="toolbar-group separator">
     <button onclick="app.saveJson()">Save</button>
     <button onclick="app.loadJson()">Load</button>
+    <button onclick="app.shareLink()" title="Copy shareable link to clipboard">Share</button>
   </div>
   <div class="toolbar-group separator" style="display:flex;align-items:center;">
     <label style="font-family:-apple-system,sans-serif;font-size:11px;color:#6b5740;display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;" title="Align all terminal nodes to the same depth">
@@ -1126,6 +1132,18 @@ button.active {
     </div>
 
     <div class="format-bar" id="branch-format-bar" style="display:none">
+      <span class="fmt-label">Branch Style</span>
+      <div class="fmt-row">
+        <button class="fmt-btn branch-style-btn on" id="bfmt-solid" onclick="app.setBranchStyle(null)" title="Solid">
+          <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="1.5"/></svg>
+        </button>
+        <button class="fmt-btn branch-style-btn" id="bfmt-dashed" onclick="app.setBranchStyle('dashed')" title="Dashed">
+          <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/></svg>
+        </button>
+        <button class="fmt-btn branch-style-btn" id="bfmt-dotted" onclick="app.setBranchStyle('dotted')" title="Dotted">
+          <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="1.5" stroke-dasharray="1.5 2"/></svg>
+        </button>
+      </div>
       <span class="fmt-label">Branch Color</span>
       <div id="branch-color-swatches-bar" class="fmt-row"></div>
     </div>
@@ -1229,6 +1247,7 @@ button.active {
       <div class="shortcut-row"><span>Zoom in</span><span class="shortcut-keys"><kbd class="mod-key">Ctrl</kbd><span class="plus">+</span><kbd>=</kbd></span></div>
       <div class="shortcut-row"><span>Zoom out</span><span class="shortcut-keys"><kbd class="mod-key">Ctrl</kbd><span class="plus">+</span><kbd>-</kbd></span></div>
       <div class="shortcut-row"><span>Reset zoom</span><span class="shortcut-keys"><kbd class="mod-key">Ctrl</kbd><span class="plus">+</span><kbd>0</kbd></span></div>
+      <div class="shortcut-row"><span>Pan canvas</span><span class="shortcut-keys"><kbd>Space</kbd><span class="plus">+</span>Drag</span></div>
     </div>
     <div class="shortcut-section">
       <h3>Selection</h3>

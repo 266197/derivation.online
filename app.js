@@ -17,6 +17,12 @@ import {
   getAnchorPos, getAnchorDir,
 } from './tree.js';
 
+function branchDashArray(style) {
+  if (style === 'dashed') return '6 4';
+  if (style === 'dotted') return '1.5 3';
+  return null;
+}
+
 class App {
   constructor() {
     this.root = null;
@@ -38,6 +44,8 @@ class App {
     this._draggingNodeId = null;  // node being dragged (for snap guides)
     this.zoomLevel = 1;
     this._rawZoom = 1;  // tracks intended zoom before snap
+    this._spaceDown = false;  // for space+drag panning
+    this._isPanning = false;
     this.svg = document.getElementById('tree-canvas');
     this.wrapper = document.getElementById('canvas-wrapper');
     this.emptyState = document.getElementById('empty-state');
@@ -52,6 +60,7 @@ class App {
 
     const deselectHandler = (e) => {
       if (this._draggingArrow) return;
+      if (this._spaceDown || this._isPanning) return;
       if (e.target.closest('.node-group') || e.target.closest('.arrow-group') || e.target.closest('.arrow-drag-handle') || e.target.closest('.label-drag-handle') || e.target.closest('.branch-drag-handle') || e.target.closest('.branch-group')) return;
       if (!this.arrowMode) {
         this.commitEdit();
@@ -62,6 +71,50 @@ class App {
     this.svg.addEventListener('click', deselectHandler);
     this.wrapper.addEventListener('click', (e) => {
       if (e.target === this.wrapper) deselectHandler(e);
+    });
+
+    // Space+drag panning
+    document.addEventListener('keydown', (e) => {
+      if (e.key === ' ' && !e.target.closest('.inline-edit') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        if (!this._spaceDown) {
+          this._spaceDown = true;
+          this.wrapper.classList.add('pan-mode');
+        }
+        e.preventDefault();
+      }
+    });
+    document.addEventListener('keyup', (e) => {
+      if (e.key === ' ') {
+        this._spaceDown = false;
+        if (!this._isPanning) this.wrapper.classList.remove('pan-mode');
+      }
+    });
+
+    this.wrapper.addEventListener('pointerdown', (e) => {
+      // Space+left click or middle mouse button
+      const isMiddle = e.button === 1;
+      const isSpaceDrag = e.button === 0 && this._spaceDown;
+      if (!isMiddle && !isSpaceDrag) return;
+      e.preventDefault();
+      this._isPanning = true;
+      this.wrapper.classList.add('pan-mode', 'panning');
+      let lastX = e.clientX, lastY = e.clientY;
+
+      const onMove = (ev) => {
+        this.wrapper.scrollLeft -= (ev.clientX - lastX);
+        this.wrapper.scrollTop -= (ev.clientY - lastY);
+        lastX = ev.clientX;
+        lastY = ev.clientY;
+      };
+      const onUp = () => {
+        this._isPanning = false;
+        this.wrapper.classList.remove('panning');
+        if (!this._spaceDown) this.wrapper.classList.remove('pan-mode');
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
     });
 
     // Ctrl/Cmd + scroll wheel / trackpad pinch zoom
@@ -233,8 +286,13 @@ class App {
 
     this._initFontSelectors();
     document.getElementById('zoom-level').addEventListener('dblclick', () => this.zoomReset());
+
+    // Restore from URL hash (shared link) or fall back to autosave
     this._restoreAutoSave();
     this.render();
+    this._restoreFromURL().then(restored => {
+      if (restored) this.render();
+    });
   }
 
   _initFontSelectors() {
@@ -384,6 +442,10 @@ class App {
       this._nodeFormatTarget = null;
     }
     document.getElementById('branch-format-bar').style.display = childId !== null ? 'flex' : 'none';
+    if (childId !== null) {
+      const node = childId ? this.findNode(childId) : null;
+      this._updateBranchStyleButtons(node ? node.branchStyle : null);
+    }
     if (changed) this.render();
   }
 
@@ -424,6 +486,33 @@ class App {
     const hasSelection = this.selectedBranchIds.size > 0;
     document.getElementById('branch-format-bar').style.display = hasSelection ? 'flex' : 'none';
     this.render();
+  }
+
+  setBranchStyle(style) {
+    if (this.selectedBranchIds.size > 1) {
+      if (!this.root) return;
+      this.saveState();
+      this.selectedBranchIds.forEach(id => {
+        const node = this.findNode(id);
+        if (node) node.branchStyle = style;
+      });
+      this.render();
+      this._reapplyMultiBranchSelect();
+      return;
+    }
+    if (!this.selectedBranchId || !this.root) return;
+    const node = this.findNode(this.selectedBranchId);
+    if (!node) return;
+    this.saveState();
+    node.branchStyle = style;
+    this.render();
+    this.selectBranch(this.selectedBranchId);
+  }
+
+  _updateBranchStyleButtons(style) {
+    document.getElementById('bfmt-solid').classList.toggle('on', !style);
+    document.getElementById('bfmt-dashed').classList.toggle('on', style === 'dashed');
+    document.getElementById('bfmt-dotted').classList.toggle('on', style === 'dotted');
   }
 
   setBranchColor(hex) {
@@ -2432,16 +2521,17 @@ class App {
       // Draw a combined fan path for non-triangle, same-color, same-parent-anchor branches
       const normalChildren = n.children.filter(c => !c.triangle);
       if (normalChildren.length >= 2) {
-        // Group by color AND parent anchor for combined paths
+        // Group by color, parent anchor, AND style for combined paths
         const byKey = {};
         normalChildren.forEach(c => {
           const col = c.branchColor || '#333';
           const pAnchor = c.branchParentAnchor || 'bottom';
-          const key = col + '|' + pAnchor;
-          if (!byKey[key]) byKey[key] = { color: col, pAnchor, kids: [] };
+          const bStyle = c.branchStyle || 'solid';
+          const key = col + '|' + pAnchor + '|' + bStyle;
+          if (!byKey[key]) byKey[key] = { color: col, pAnchor, bStyle, kids: [] };
           byKey[key].kids.push(c);
         });
-        Object.values(byKey).forEach(({ color, pAnchor, kids }) => {
+        Object.values(byKey).forEach(({ color, pAnchor, bStyle, kids }) => {
           if (kids.length < 2) return;
           const pp = getAnchorPos(n, pAnchor);
           // Sort children by their child-anchor x position
@@ -2460,7 +2550,11 @@ class App {
           const fan = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           fan.setAttribute('d', d);
           fan.setAttribute('class', 'branch-fan');
-          if (color !== '#333') fan.setAttribute('style', `stroke:${color};`);
+          let fanStyle = '';
+          if (color !== '#333') fanStyle += `stroke:${color};`;
+          const da = branchDashArray(bStyle === 'solid' ? null : bStyle);
+          if (da) fanStyle += `stroke-dasharray:${da};`;
+          if (fanStyle) fan.setAttribute('style', fanStyle);
           fan.setAttribute('pointer-events', 'none');
           this.svg.appendChild(fan);
         });
@@ -2487,6 +2581,8 @@ class App {
             stem.setAttribute('x2', c.x); stem.setAttribute('y2', triTop);
             stem.setAttribute('class', 'branch-line');
             if (c.branchColor) stem.style.stroke = c.branchColor;
+            const stemDa = branchDashArray(c.branchStyle);
+            if (stemDa) stem.style.strokeDasharray = stemDa;
             g.appendChild(stem);
           }
 
@@ -2504,6 +2600,8 @@ class App {
           if (c.triangleFillColor) { path.style.fill = c.triangleFillColor; path.dataset.fillColor = c.triangleFillColor; }
           else path.setAttribute('fill', 'none');
           if (c.branchColor) path.style.stroke = c.branchColor;
+          const triDa = branchDashArray(c.branchStyle);
+          if (triDa) path.style.strokeDasharray = triDa;
           g.appendChild(path);
         } else {
           const bp1 = getAnchorPos(n, c.branchParentAnchor || 'bottom');
@@ -2520,13 +2618,16 @@ class App {
           const pAnchor = c.branchParentAnchor || 'bottom';
           const siblings = normalChildren.filter(s =>
             (s.branchColor || '#333') === (c.branchColor || '#333') &&
-            (s.branchParentAnchor || 'bottom') === pAnchor
+            (s.branchParentAnchor || 'bottom') === pAnchor &&
+            (s.branchStyle || 'solid') === (c.branchStyle || 'solid')
           );
           const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
           line.setAttribute('x1', bp1.x); line.setAttribute('y1', bp1.y);
           line.setAttribute('x2', bp2.x); line.setAttribute('y2', bp2.y);
           line.setAttribute('class', 'branch-line');
           if (c.branchColor) line.style.stroke = c.branchColor;
+          const lineDa = branchDashArray(c.branchStyle);
+          if (lineDa) line.style.strokeDasharray = lineDa;
           if (siblings.length >= 2) line.style.opacity = '0';
           g.appendChild(line);
         }
@@ -2595,6 +2696,7 @@ class App {
 
       g.addEventListener('pointerdown', (e) => {
         if (e.button !== 0) return; // left button only
+        if (this._spaceDown) return; // let pan handler take over
         e.stopPropagation();
         if (this.arrowMode) {
           this.handleArrowClick(n.id, e);
@@ -2956,6 +3058,117 @@ class App {
     this.selectedArrowIdx = null;
     this.editingNode = null;
     this.render();
+  }
+
+  // --- Shareable links ---
+
+  async shareLink() {
+    if (!this.root) {
+      this.toast('Nothing to share');
+      return;
+    }
+    try {
+      const data = this._getProjectData();
+      const json = JSON.stringify(data);
+      const compressed = await this._compress(json);
+      const url = window.location.origin + window.location.pathname + '#tree=' + compressed;
+
+      if (url.length > 32000) {
+        this.toast('Tree too large to share via link — use Save instead');
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
+      // Update URL without reloading
+      history.replaceState(null, '', '#tree=' + compressed);
+      this.toast('Link copied to clipboard');
+    } catch (e) {
+      this.toast('Failed to generate link');
+    }
+  }
+
+  async _restoreFromURL() {
+    const hash = window.location.hash;
+    if (!hash.startsWith('#tree=')) return false;
+    try {
+      const compressed = hash.slice(6);
+      const json = await this._decompress(compressed);
+      const data = JSON.parse(json);
+      if (data.tree) {
+        this.root = TreeNode.fromJSON(data.tree);
+        this.arrows = data.arrows || [];
+        if (data.nextId) setNextId(data.nextId);
+        this._syncNextId();
+        this.alignBottom = data.alignBottom || false;
+        document.getElementById('align-bottom-cb').checked = this.alignBottom;
+        if (data.fontFamily) {
+          setFontFamily(data.fontFamily);
+          document.getElementById('font-family-select').value = data.fontFamily;
+        }
+        if (data.fontSize) {
+          setFontSize(data.fontSize);
+          document.getElementById('font-size-select').value = data.fontSize;
+        }
+        this._applyFontCSS();
+        return true;
+      }
+    } catch (e) {
+      console.warn('Failed to restore from URL:', e);
+    }
+    return false;
+  }
+
+  async _compress(str) {
+    const bytes = new TextEncoder().encode(str);
+    const cs = new CompressionStream('deflate');
+    const writer = cs.writable.getWriter();
+    writer.write(bytes);
+    writer.close();
+    const chunks = [];
+    const reader = cs.readable.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const totalLen = chunks.reduce((a, c) => a + c.length, 0);
+    const merged = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    // Base64url encoding (URL-safe, no padding)
+    let b64 = btoa(String.fromCharCode(...merged));
+    return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async _decompress(b64url) {
+    // Restore standard base64
+    let b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const ds = new DecompressionStream('deflate');
+    const writer = ds.writable.getWriter();
+    writer.write(bytes);
+    writer.close();
+    const chunks = [];
+    const reader = ds.readable.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    const totalLen = chunks.reduce((a, c) => a + c.length, 0);
+    const merged = new Uint8Array(totalLen);
+    let offset = 0;
+    for (const chunk of chunks) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return new TextDecoder().decode(merged);
   }
 
   _syncNextId() {

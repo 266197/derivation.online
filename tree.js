@@ -439,6 +439,7 @@ class TreeNode {
     this.children = [];
     this.triangle = false;
     this.branchColor = null;
+    this.branchStyle = null;  // null = solid, 'dashed', 'dotted'
     this.borderColor = null;
     this.fillColor = null;
     this.triangleFillColor = null;
@@ -476,6 +477,7 @@ class TreeNode {
     const o = { id: this.id, runs: this.runs, children: this.children.map(c => c.toJSON()) };
     if (this.triangle) o.triangle = true;
     if (this.branchColor) o.branchColor = this.branchColor;
+    if (this.branchStyle) o.branchStyle = this.branchStyle;
     if (this.borderColor) o.borderColor = this.borderColor;
     if (this.fillColor) o.fillColor = this.fillColor;
     if (this.triangleFillColor) o.triangleFillColor = this.triangleFillColor;
@@ -492,6 +494,7 @@ class TreeNode {
     n.runs = obj.runs || defaultRuns(obj.label || '');
     n.triangle = obj.triangle || false;
     n.branchColor = obj.branchColor || null;
+    n.branchStyle = obj.branchStyle || null;
     n.borderColor = obj.borderColor || null;
     n.fillColor = obj.fillColor || null;
     n.triangleFillColor = obj.triangleFillColor || null;

@@ -848,14 +848,18 @@ class App {
     this.render();
   }
 
-  toggleExportMenu() {
-    const dd = document.getElementById('export-dropdown');
+  toggleDropdown(id) {
+    // Close any other open dropdowns first
+    document.querySelectorAll('.toolbar-dropdown').forEach(dd => {
+      if (dd.id !== id) dd.style.display = 'none';
+    });
+    const dd = document.getElementById(id);
     const visible = dd.style.display !== 'none';
     dd.style.display = visible ? 'none' : 'block';
     if (!visible) {
       const close = (e) => {
-        if (!e.target.closest('.export-wrapper')) {
-          dd.style.display = 'none';
+        if (!e.target.closest('.toolbar-dropdown-wrapper')) {
+          document.querySelectorAll('.toolbar-dropdown').forEach(d => d.style.display = 'none');
           document.removeEventListener('click', close, true);
         }
       };
@@ -863,8 +867,8 @@ class App {
     }
   }
 
-  closeExportMenu() {
-    document.getElementById('export-dropdown').style.display = 'none';
+  closeDropdowns() {
+    document.querySelectorAll('.toolbar-dropdown').forEach(dd => dd.style.display = 'none');
   }
 
   toggleShortcutsHelp() {

@@ -2764,7 +2764,7 @@ class App {
     const cropX = minX - pad, cropY = minY - pad;
     const cropW = maxX - minX + pad * 2, cropH = maxY - minY + pad * 2;
 
-    // Build a clean standalone SVG for the PDF
+    // Build a clean standalone SVG (same as SVG export)
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
@@ -2772,92 +2772,105 @@ class App {
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 
-    // Apply inline styles to all elements (jsPDF svg() reads inline styles, not <style> blocks)
-    svgEl.querySelectorAll('.node-rect').forEach(el => {
-      if (!el.dataset.fillColor) el.style.fill = 'none';
-      if (!el.dataset.borderColor) el.style.stroke = 'none';
+    svgEl.setAttribute('viewBox', `${cropX} ${cropY} ${cropW} ${cropH}`);
+    svgEl.removeAttribute('id');
+
+    const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    styleEl.textContent = `
+      .node-rect { fill: none; stroke: none; }
+      .node-label { font-family: ${getFontFamily()}; font-size: ${getFontSize()}px;
+        fill: #333; text-anchor: middle; dominant-baseline: central; }
+      .branch-line { stroke: #333; stroke-width: 1.2; stroke-linecap: round; }
+      .branch-fan { stroke: #333; stroke-width: 1.2; fill: none; stroke-linejoin: miter; stroke-miterlimit: 10; stroke-linecap: round; }
+      .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
+      .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
+      .arrow-head { fill: #333; stroke: none; }
+      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.92)}px; fill: #333; text-anchor: middle; }
+    `;
+
+    // Reorder layers (same as SVG export)
+    const origNodeGroups = Array.from(svgEl.querySelectorAll('.node-group'));
+    origNodeGroups.forEach(ng => {
+      const rect = ng.querySelector('.node-rect');
+      if (rect) {
+        const rectWrapper = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        rectWrapper.setAttribute('class', 'node-rect-bg');
+        rectWrapper.appendChild(rect.cloneNode(true));
+        svgEl.appendChild(rectWrapper);
+      }
     });
-    svgEl.querySelectorAll('.node-rect[data-border-color]').forEach(el => {
-      el.style.stroke = el.dataset.borderColor;
-      el.style.strokeWidth = '1.5';
+    svgEl.querySelectorAll('.branch-fan').forEach(el => svgEl.appendChild(el));
+    svgEl.querySelectorAll('.branch-group').forEach(el => svgEl.appendChild(el));
+    origNodeGroups.forEach(ng => {
+      const rect = ng.querySelector('.node-rect');
+      if (rect) rect.remove();
+      svgEl.appendChild(ng);
     });
-    svgEl.querySelectorAll('.node-rect[data-fill-color]').forEach(el => {
-      el.style.fill = el.dataset.fillColor;
+    svgEl.querySelectorAll('.arrow-group').forEach(el => svgEl.appendChild(el));
+
+    svgEl.insertBefore(styleEl, svgEl.firstChild);
+
+    // Apply per-node border and fill colors
+    svgEl.querySelectorAll('.node-rect[data-border-color]').forEach(rect => {
+      rect.style.stroke = rect.dataset.borderColor;
+      rect.style.strokeWidth = '1.5';
     });
-    const fontFamily = getFontFamily();
-    const fontSize = getFontSize();
-    svgEl.querySelectorAll('.node-label').forEach(el => {
-      el.style.fontFamily = fontFamily;
-      if (!el.getAttribute('font-size')) el.style.fontSize = fontSize + 'px';
-      if (!el.getAttribute('fill') && !el.style.fill) el.style.fill = '#333';
-      el.setAttribute('text-anchor', 'middle');
-      el.setAttribute('dominant-baseline', 'central');
-    });
-    svgEl.querySelectorAll('.branch-line').forEach(el => {
-      if (!el.style.stroke) el.style.stroke = '#333';
-      el.style.strokeWidth = '1.2';
-      el.style.strokeLinecap = 'round';
-    });
-    svgEl.querySelectorAll('.branch-fan').forEach(el => {
-      if (!el.getAttribute('style') || !el.style.stroke) el.style.stroke = '#333';
-      el.style.strokeWidth = '1.2';
-      el.style.fill = 'none';
-      el.style.strokeLinejoin = 'miter';
-      el.style.strokeLinecap = 'round';
-    });
-    svgEl.querySelectorAll('.triangle-line').forEach(el => {
-      if (!el.style.stroke) el.style.stroke = '#333';
-      el.style.strokeWidth = '1.2';
-      if (!el.dataset.fillColor && !el.style.fill) el.style.fill = 'none';
+    svgEl.querySelectorAll('.node-rect[data-fill-color]').forEach(rect => {
+      rect.style.fill = rect.dataset.fillColor;
     });
     svgEl.querySelectorAll('.triangle-line[data-fill-color]').forEach(el => {
       el.style.fill = el.dataset.fillColor;
     });
-    svgEl.querySelectorAll('.arrow-label').forEach(el => {
-      el.style.fontFamily = fontFamily;
-      el.style.fontSize = Math.round(fontSize * 0.92) + 'px';
-      if (!el.style.fill) el.style.fill = '#333';
-      el.setAttribute('text-anchor', 'middle');
-    });
 
-    // Determine PDF page layout
-    const pdfMargin = 15; // mm
+    const svgStr = new XMLSerializer().serializeToString(svgEl);
+
+    // Determine orientation from tree aspect ratio
     const landscape = cropW > cropH;
-    const pageW = landscape ? 297 : 210;
-    const pageH = landscape ? 210 : 297;
-    const availW = pageW - pdfMargin * 2;
-    const availH = pageH - pdfMargin * 2;
 
-    // px to mm conversion: fit tree into available area
-    const ratio = Math.min(availW / cropW, availH / cropH);
-    const svgW = cropW * ratio;
-    const svgH = cropH * ratio;
-    const offsetX = pdfMargin + (availW - svgW) / 2;
-    const offsetY = pdfMargin + (availH - svgH) / 2;
+    // Open a print window with the SVG centered on the page
+    const printWin = window.open('', '_blank', 'width=800,height=600');
+    if (!printWin) {
+      this.toast('Please allow pop-ups to export PDF');
+      return;
+    }
 
-    // Set SVG dimensions to match the PDF placement (in mm)
-    svgEl.setAttribute('viewBox', `${cropX} ${cropY} ${cropW} ${cropH}`);
-    svgEl.setAttribute('width', svgW);
-    svgEl.setAttribute('height', svgH);
-    svgEl.style.width = '';
-    svgEl.style.height = '';
-    svgEl.style.minWidth = '';
-    svgEl.style.minHeight = '';
+    printWin.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<title>derivation-tree</title>
+<style>
+  @page {
+    size: A4 ${landscape ? 'landscape' : 'portrait'};
+    margin: 15mm;
+  }
+  * { margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  svg {
+    max-width: 100%; max-height: 100%;
+    width: auto; height: auto;
+  }
+  @media screen {
+    body { background: #f5f5f5; padding: 20px; }
+  }
+</style>
+</head>
+<body>${svgStr}</body>
+</html>`);
+    printWin.document.close();
 
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({
-      orientation: landscape ? 'landscape' : 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
-    // Use jsPDF's svg() to render vector graphics with selectable text
-    pdf.svg(svgEl, { x: offsetX, y: offsetY, width: svgW, height: svgH }).then(() => {
-      pdf.save('derivation-tree.pdf');
-      this.toast('Exported to PDF');
-    }).catch(() => {
-      this.toast('PDF export failed');
-    });
+    // Wait for content to render, then trigger print
+    printWin.onload = () => {
+      printWin.focus();
+      printWin.print();
+    };
+    // Fallback if onload already fired
+    setTimeout(() => {
+      printWin.focus();
+      printWin.print();
+    }, 500);
   }
 
 }

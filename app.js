@@ -2368,7 +2368,9 @@ class App {
       treeMaxX = Math.max(treeMaxX, n.x + n.w / 2);
     });
     const treeW = treeMaxX - treeMinX;
-    const wrapperW = this.wrapper.clientWidth / this.zoomLevel;
+    // Use unzoomed wrapper width so centering offset stays constant across zoom levels
+    // (prevents elbow/arrow absolute coordinates from drifting)
+    const wrapperW = this.wrapper.clientWidth;
     const offsetX = Math.max(40, (wrapperW - treeW) / 2) - treeMinX;
     allNodes.forEach(n => { n.x += offsetX; });
 

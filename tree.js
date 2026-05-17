@@ -338,6 +338,7 @@ function runsToHTML(runs) {
     if (r.italic) t = `<i>${t}</i>`;
     if (r.sub) t = `<sub>${t}</sub>`;
     if (r.sup) t = `<sup>${t}</sup>`;
+    if (r.underline) t = `<u>${t}</u>`;
     if (r.strike) t = `<s>${t}</s>`;
     if (r.smallcaps) t = `<span style="font-variant:small-caps">${t}</span>`;
     if (r.color && r.color !== '#333333') t = `<span style="color:${r.color}">${t}</span>`;
@@ -364,6 +365,7 @@ function htmlToRuns(el) {
     if (tag === 'i' || tag === 'em') f.italic = true;
     if (tag === 'sub') f.sub = true;
     if (tag === 'sup') f.sup = true;
+    if (tag === 'u' || tag === 'ins') f.underline = true;
     if (tag === 's' || tag === 'strike' || tag === 'del') f.strike = true;
     if (tag === 'br') {
       runs.push({ text: '\n', ...fmt });
@@ -398,7 +400,7 @@ function htmlToRuns(el) {
     const last = merged[merged.length - 1];
     if (last && !!last.bold === !!r.bold && !!last.italic === !!r.italic &&
         !!last.sub === !!r.sub && !!last.sup === !!r.sup &&
-        !!last.strike === !!r.strike && !!last.smallcaps === !!r.smallcaps &&
+        !!last.underline === !!r.underline && !!last.strike === !!r.strike && !!last.smallcaps === !!r.smallcaps &&
         (last.color || '') === (r.color || '')) {
       last.text += r.text;
     } else {
@@ -411,6 +413,7 @@ function htmlToRuns(el) {
     if (r.italic) o.italic = true;
     if (r.sub) o.sub = true;
     if (r.sup) o.sup = true;
+    if (r.underline) o.underline = true;
     if (r.strike) o.strike = true;
     if (r.smallcaps) o.smallcaps = true;
     if (r.color && r.color !== '#333333') o.color = r.color;
@@ -681,7 +684,9 @@ function createSvgRunSpans(textEl, runs, cx, cy, nodeH) {
         tspan.setAttribute('baseline-shift', '0');
         needsReset = false;
       }
-      if (r.strike) tspan.setAttribute('text-decoration', 'line-through');
+      if (r.underline && r.strike) tspan.setAttribute('text-decoration', 'underline line-through');
+      else if (r.underline) tspan.setAttribute('text-decoration', 'underline');
+      else if (r.strike) tspan.setAttribute('text-decoration', 'line-through');
       if (r.smallcaps) tspan.setAttribute('font-variant', 'small-caps');
       if (r.color) tspan.setAttribute('fill', r.color);
       textEl.appendChild(tspan);

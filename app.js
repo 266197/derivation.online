@@ -2734,6 +2734,129 @@ class App {
     this.toast('Exported to SVG');
   }
 
+  exportPdf() {
+    if (!this.root) return;
+
+    const pad = 20;
+    const allNodes = [];
+    const nodeMap = {};
+    function collect(n) { allNodes.push(n); nodeMap[n.id] = n; n.children.forEach(collect); }
+    collect(this.root);
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    allNodes.forEach(n => {
+      minX = Math.min(minX, n.x - n.w / 2);
+      maxX = Math.max(maxX, n.x + n.w / 2);
+      minY = Math.min(minY, n.y);
+      maxY = Math.max(maxY, n.y + n.h);
+    });
+
+    this.svg.querySelectorAll('.arrow-path').forEach(pathEl => {
+      try {
+        const box = pathEl.getBBox();
+        minX = Math.min(minX, box.x);
+        maxX = Math.max(maxX, box.x + box.width);
+        minY = Math.min(minY, box.y);
+        maxY = Math.max(maxY, box.y + box.height);
+      } catch(e) {}
+    });
+
+    const cropX = minX - pad, cropY = minY - pad;
+    const cropW = maxX - minX + pad * 2, cropH = maxY - minY + pad * 2;
+
+    const svgEl = this.svg.cloneNode(true);
+    svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
+    svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .curve-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
+    svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
+
+    svgEl.setAttribute('viewBox', `${cropX} ${cropY} ${cropW} ${cropH}`);
+    svgEl.setAttribute('width', cropW);
+    svgEl.setAttribute('height', cropH);
+    svgEl.style.minWidth = '';
+    svgEl.style.minHeight = '';
+    svgEl.style.width = cropW + 'px';
+    svgEl.style.height = cropH + 'px';
+
+    const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    styleEl.textContent = `
+      .node-rect { fill: none; stroke: none; }
+      .node-label { font-family: ${getFontFamily()}; font-size: ${getFontSize()}px;
+        fill: #333; text-anchor: middle; dominant-baseline: central;
+        pointer-events: none; user-select: none; }
+      .branch-line { stroke: #333; stroke-width: 1.2; stroke-linecap: round; }
+      .branch-fan { stroke: #333; stroke-width: 1.2; fill: none; stroke-linejoin: miter; stroke-miterlimit: 10; stroke-linecap: round; }
+      .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
+      .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
+      .arrow-head { fill: #333; stroke: none; }
+      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.92)}px; fill: #333; text-anchor: middle; }
+      .anchor-dot { display: none; }
+    `;
+    svgEl.insertBefore(styleEl, svgEl.firstChild);
+
+    svgEl.querySelectorAll('.node-rect[data-border-color]').forEach(rect => {
+      rect.style.stroke = rect.dataset.borderColor;
+      rect.style.strokeWidth = '1.5';
+    });
+    svgEl.querySelectorAll('.node-rect[data-fill-color]').forEach(rect => {
+      rect.style.fill = rect.dataset.fillColor;
+    });
+    svgEl.querySelectorAll('.triangle-line[data-fill-color]').forEach(el => {
+      el.style.fill = el.dataset.fillColor;
+    });
+
+    const svgStr = new XMLSerializer().serializeToString(svgEl);
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const canvas = document.createElement('canvas');
+    const scale = 4;
+    canvas.width = cropW * scale;
+    canvas.height = cropH * scale;
+    const ctx = canvas.getContext('2d');
+
+    const img = new Image();
+    img.onload = () => {
+      // White background
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, cropW * scale, cropH * scale);
+      URL.revokeObjectURL(url);
+
+      const imgData = canvas.toDataURL('image/png');
+
+      // Determine page orientation and size to fit the tree
+      const pdfMargin = 20; // mm
+      const landscape = cropW > cropH;
+      const pageW = landscape ? 297 : 210; // A4 mm
+      const pageH = landscape ? 210 : 297;
+      const availW = pageW - pdfMargin * 2;
+      const availH = pageH - pdfMargin * 2;
+
+      // Scale image to fit within available area, maintaining aspect ratio
+      const ratio = Math.min(availW / cropW, availH / cropH);
+      const imgW = cropW * ratio;
+      const imgH = cropH * ratio;
+
+      // Center on page
+      const offsetX = pdfMargin + (availW - imgW) / 2;
+      const offsetY = pdfMargin + (availH - imgH) / 2;
+
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({
+        orientation: landscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      pdf.addImage(imgData, 'PNG', offsetX, offsetY, imgW, imgH);
+      pdf.save('derivation-tree.pdf');
+      this.toast('Exported to PDF');
+    };
+    img.src = url;
+  }
+
 }
 
 const app = new App();

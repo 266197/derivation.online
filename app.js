@@ -277,7 +277,10 @@ class App {
     });
 
     this.bracketInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') this.parseBrackets();
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        this.parseBrackets();
+      }
     });
 
     document.getElementById('file-input').addEventListener('change', (e) => {

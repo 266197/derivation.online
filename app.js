@@ -2389,21 +2389,6 @@ class App {
       this._deferredTriangleGroups = null;
     }
 
-    // Show drag handles for selected branch anchor endpoints
-    if (this.selectedBranchIds.size === 1) {
-      const childId = this.selectedBranchIds.values().next().value;
-      const child = this.findNode(childId);
-      if (child && child.parent) {
-        const parent = child.parent;
-        const pp = getAnchorPos(parent, child.branchParentAnchor || 'bottom');
-        this._renderBranchAnchorHandle(pp.x, pp.y, child, 'parent');
-        if (!child.triangle) {
-          const cp = getAnchorPos(child, child.branchChildAnchor || 'top');
-          this._renderBranchAnchorHandle(cp.x, cp.y, child, 'child');
-        }
-      }
-    }
-
     // nodes
     allNodes.forEach(n => {
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -2528,6 +2513,21 @@ class App {
 
 
     this.renderArrows();
+
+    // Show drag handles for selected branch anchor endpoints (on top of everything)
+    if (this.selectedBranchIds.size === 1) {
+      const childId = this.selectedBranchIds.values().next().value;
+      const child = this.findNode(childId);
+      if (child && child.parent) {
+        const pp = getAnchorPos(child.parent, child.branchParentAnchor || 'bottom');
+        this._renderBranchAnchorHandle(pp.x, pp.y, child, 'parent');
+        if (!child.triangle) {
+          const cp = getAnchorPos(child, child.branchChildAnchor || 'top');
+          this._renderBranchAnchorHandle(cp.x, cp.y, child, 'child');
+        }
+      }
+    }
+
     this.updateToolbar();
     this.updateArrowFormatBar();
     this._autoSave();

@@ -609,6 +609,122 @@ button.active {
   color: #aaa;
 }
 
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feedback-modal {
+  background: #fffefa;
+  border: 1px solid #e0dcd4;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(80,60,30,0.15);
+  padding: 24px 28px;
+  max-width: 420px;
+  width: 90%;
+  animation: modal-in 0.15s ease-out;
+}
+
+.feedback-modal h2 {
+  font-family: 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #3d3530;
+  margin-bottom: 6px;
+}
+
+.feedback-modal p {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  color: #998e80;
+  margin-bottom: 14px;
+}
+
+.feedback-modal .fb-type-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.feedback-modal .fb-type-btn {
+  padding: 4px 12px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 11px;
+  border: 1px solid #d4cfc7;
+  border-radius: 3px;
+  background: #fff;
+  color: #6b5740;
+  cursor: pointer;
+}
+
+.feedback-modal .fb-type-btn:hover { background: #f7f2eb; }
+.feedback-modal .fb-type-btn.active { background: #f0ebe3; border-color: #8b7355; }
+
+.feedback-modal textarea {
+  width: 100%;
+  min-height: 100px;
+  border: 1px solid #d4cfc7;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #4a4540;
+  background: #fff;
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.feedback-modal textarea:focus { border-color: #8b7355; }
+
+.feedback-modal .fb-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.feedback-modal .fb-char-count {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  color: #998e80;
+}
+
+.feedback-modal .fb-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.feedback-modal .fb-cancel {
+  padding: 5px 14px;
+  font-size: 12px;
+  border: 1px solid #d4cfc7;
+  border-radius: 4px;
+  background: #fff;
+  color: #6b5740;
+  cursor: pointer;
+}
+
+.feedback-modal .fb-cancel:hover { background: #f7f2eb; }
+
+.feedback-modal .fb-submit {
+  padding: 5px 14px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  background: #4a4540;
+  color: #fff;
+  cursor: pointer;
+}
+
+.feedback-modal .fb-submit:hover { background: #3d3530; }
+.feedback-modal .fb-submit:disabled { opacity: 0.4; cursor: default; }
+
 .donate-overlay {
   position: fixed;
   inset: 0;
@@ -833,6 +949,7 @@ button.active {
     </div>
   </div>
   <a href="docs.html" target="_blank" style="font-size:11px;color:#998e80;text-decoration:none;margin-left:8px;font-family:-apple-system,sans-serif;" title="Documentation">Docs</a>
+  <button onclick="document.getElementById('feedback-overlay').style.display='flex'" style="font-size:11px;padding:4px 10px;background:none;border:1px solid #d4cfc7;color:#6b5740;">Feedback</button>
   <button onclick="document.getElementById('donate-overlay').style.display='flex'" style="font-size:11px;padding:4px 10px;background:none;border:1px solid #d4cfc7;color:#6b5740;">Support</button>
 </header>
 
@@ -914,6 +1031,26 @@ button.active {
 <div class="context-menu" id="context-menu" style="display:none;"></div>
 <div class="toast" id="toast"></div>
 
+<div class="feedback-overlay" id="feedback-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="feedback-modal">
+    <h2>Send Feedback</h2>
+    <p>Bug reports, feature requests, or general comments — all welcome.</p>
+    <div class="fb-type-row">
+      <button class="fb-type-btn active" onclick="document.querySelectorAll('.fb-type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active');this.dataset.type='general'" data-type="general">General</button>
+      <button class="fb-type-btn" onclick="document.querySelectorAll('.fb-type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')" data-type="bug">Bug</button>
+      <button class="fb-type-btn" onclick="document.querySelectorAll('.fb-type-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')" data-type="feature">Feature Request</button>
+    </div>
+    <textarea id="feedback-text" maxlength="1000" placeholder="Tell us what you think..."></textarea>
+    <div class="fb-footer">
+      <span class="fb-char-count"><span id="fb-count">0</span>/1000</span>
+      <div class="fb-btns">
+        <button class="fb-cancel" onclick="document.getElementById('feedback-overlay').style.display='none'">Cancel</button>
+        <button class="fb-submit" id="fb-submit" onclick="window._submitFeedback()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="donate-overlay" id="donate-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
   <div class="donate-modal">
     <h2>Support this project</h2>
@@ -967,6 +1104,48 @@ button.active {
   </div>
 </div>
 
+<script>
+(function() {
+  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbz04gazR1t56QwEStoCegHFHWmczWiIFvUmgX1xz3BhuZbGcUT0tmhiHjSkLDMaC6NF/exec';
+  var sent = false;
+
+  var ta = document.getElementById('feedback-text');
+  ta.addEventListener('input', function() {
+    document.getElementById('fb-count').textContent = ta.value.length;
+  });
+
+  window._submitFeedback = function() {
+    if (sent) { app.toast('Feedback already sent this session'); return; }
+    var text = ta.value.trim();
+    if (!text) return;
+    var type = (document.querySelector('.fb-type-btn.active') || {}).dataset.type || 'general';
+    var btn = document.getElementById('fb-submit');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    fetch(ENDPOINT, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feedback: text.slice(0, 1000), type: type })
+    }).then(function() {
+      sent = true;
+      btn.textContent = 'Sent!';
+      ta.value = '';
+      document.getElementById('fb-count').textContent = '0';
+      setTimeout(function() {
+        document.getElementById('feedback-overlay').style.display = 'none';
+        btn.disabled = false;
+        btn.textContent = 'Send';
+      }, 1200);
+    }).catch(function() {
+      btn.disabled = false;
+      btn.textContent = 'Send';
+      app.toast('Failed to send — try again');
+    });
+  };
+})();
+</script>
 <script type="module" src="app.js"></script>
 </body>
 </html>

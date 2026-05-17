@@ -255,6 +255,7 @@ class App {
   _applyFontCSS() {
     this.svg.style.setProperty('--tree-font', getFontFamily());
     this.svg.style.setProperty('--tree-font-size', getFontSize() + 'px');
+    this.svg.style.setProperty('--arrow-label-size', Math.round(getFontSize() * 0.75) + 'px');
     this.wrapper.style.setProperty('--tree-font', getFontFamily());
     this.wrapper.style.setProperty('--tree-font-size', getFontSize() + 'px');
   }
@@ -911,7 +912,7 @@ class App {
     div.className = 'inline-edit';
     div.contentEditable = 'true';
     div.spellcheck = false;
-    div.style.fontSize = '11px';
+    div.style.fontSize = Math.round(getFontSize() * 0.75) + 'px';
     div.style.textAlign = 'center';
 
     const runs = getArrowLabelRuns(arrow);
@@ -2963,7 +2964,7 @@ class App {
       .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
       .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
       .arrow-head { fill: #333; stroke: none; }
-      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.92)}px; fill: #333; text-anchor: middle; }
+      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.75)}px; fill: #333; text-anchor: middle; }
       .anchor-dot { display: none; }
     `;
 
@@ -3060,7 +3061,7 @@ class App {
       .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
       .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
       .arrow-head { fill: #333; stroke: none; }
-      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.92)}px; fill: #333; text-anchor: middle; }
+      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.75)}px; fill: #333; text-anchor: middle; }
     `;
 
     // Reorder layers: rects (bottom) → fans → branches → labels → arrows (top)
@@ -3171,7 +3172,7 @@ class App {
       .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
       .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
       .arrow-head { fill: #333; stroke: none; }
-      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.92)}px; fill: #333; text-anchor: middle; }
+      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.75)}px; fill: #333; text-anchor: middle; }
     `;
 
     // Reorder layers (same as SVG export)

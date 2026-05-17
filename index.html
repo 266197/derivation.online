@@ -3,10 +3,51 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Merge — Syntactic Tree Builder</title>
+<title>Merge — Free Online Syntax Tree Generator for Linguistics</title>
+<meta name="description" content="Merge is a free online syntax tree diagram generator for linguists, students, and researchers. Draw phrase structure trees, X-bar diagrams, and syntactic derivations with rich formatting, movement arrows, and high-quality PNG/SVG export.">
+<meta name="keywords" content="syntax tree, tree diagram, linguistics, phrase structure, syntactic tree, tree generator, X-bar theory, derivation, syntax diagram, parse tree, constituent structure, linguistic tree, tree drawing tool, syntax tree maker">
+<meta name="author" content="Alper Kesici">
+<link rel="canonical" href="https://derivation.online/">
+
+<!-- Open Graph / Social sharing -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://derivation.online/">
+<meta property="og:title" content="Merge — Free Online Syntax Tree Generator">
+<meta property="og:description" content="Draw syntax trees for linguistics research and teaching. Rich text formatting, movement arrows, bracket notation input, and export to PNG/SVG.">
+<meta property="og:site_name" content="Merge">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Merge — Free Online Syntax Tree Generator">
+<meta name="twitter:description" content="Draw syntax trees for linguistics research and teaching. Rich text formatting, movement arrows, and high-quality export.">
+
+<!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Merge",
+  "url": "https://derivation.online",
+  "description": "A free online syntax tree diagram generator for linguists. Draw phrase structure trees with rich formatting, movement arrows, bracket notation, and export to PNG/SVG.",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Any",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Alper Kesici"
+  },
+  "keywords": "syntax tree, linguistics, phrase structure, tree diagram, X-bar, derivation"
+}
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 
 body {
   font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
@@ -917,8 +958,27 @@ button.active {
 </head>
 <body>
 
+<noscript>
+<div style="max-width:800px;margin:40px auto;padding:20px;font-family:Georgia,serif;line-height:1.7">
+  <h1>Merge — Free Online Syntax Tree Generator</h1>
+  <p>Merge is a free, browser-based tool for drawing syntactic tree diagrams used in linguistics. It requires JavaScript to run.</p>
+  <h2>Features</h2>
+  <ul>
+    <li>Draw phrase structure trees and X-bar diagrams</li>
+    <li>Rich text formatting: bold, italic, subscript, superscript, small caps, strikethrough</li>
+    <li>Movement arrows with curved, straight, and elbow styles</li>
+    <li>Triangle notation for terminal nodes</li>
+    <li>Bracket notation input: e.g. [S [NP [Det the] [N cat]] [VP [V sat]]]</li>
+    <li>Export to high-quality PNG and SVG</li>
+    <li>Customizable fonts and colors</li>
+    <li>Auto-save and project file save/load</li>
+  </ul>
+  <p>Please enable JavaScript to use Merge.</p>
+</div>
+</noscript>
+
 <header>
-  <h1>Merge</h1>
+  <h1><span>Merge</span> <span class="sr-only">— Free Online Syntax Tree Generator for Linguistics</span></h1>
   <div class="toolbar-group">
     <button id="btn-add-root" onclick="app.addRootNode()">Add Root</button>
     <button id="btn-add-child" onclick="app.addChildToSelected()" disabled>Add Child</button>

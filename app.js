@@ -48,12 +48,6 @@ class App {
     this.buildNodeBorderSwatches();
     this.buildArrowColorSwatches();
 
-    // Auto-toggle side panel when any format bar becomes visible
-    const observer = new MutationObserver(() => this._updateSidePanel());
-    this.sidePanel.querySelectorAll('.format-bar').forEach(bar => {
-      observer.observe(bar, { attributes: true, attributeFilter: ['style'] });
-    });
-
     const deselectHandler = (e) => {
       if (this._draggingArrow) return;
       if (e.target.closest('.node-group') || e.target.closest('.arrow-group') || e.target.closest('.arrow-drag-handle') || e.target.closest('.label-drag-handle') || e.target.closest('.branch-drag-handle') || e.target.closest('.branch-group')) return;
@@ -1089,12 +1083,6 @@ class App {
     if (this.root) this.saveState();
     this.alignBottom = on;
     if (this.root) this.render();
-  }
-
-  _updateSidePanel() {
-    const hasVisible = Array.from(this.sidePanel.querySelectorAll('.format-bar'))
-      .some(bar => bar.style.display !== 'none');
-    this.sidePanel.classList.toggle('open', hasVisible);
   }
 
   // --- Arrows rendering ---

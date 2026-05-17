@@ -443,21 +443,12 @@ button.active {
 }
 
 .side-panel {
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
   width: 180px;
+  min-width: 180px;
   overflow-y: auto;
   background: rgba(255,254,250,0.96);
-  backdrop-filter: blur(8px);
   border-right: 1px solid #e0dcd4;
-  z-index: 5;
-  transform: translateX(-100%);
-  transition: transform 0.1s ease;
-  box-shadow: none;
-}
-.side-panel.open {
-  transform: translateX(0);
-  box-shadow: 2px 0 8px rgba(80,60,30,0.06);
+  flex-shrink: 0;
 }
 
 .format-bar {

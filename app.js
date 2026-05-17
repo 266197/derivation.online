@@ -1915,12 +1915,15 @@ class App {
             arrow.toAnchor = bestNode.anchor;
             delete arrow.toAnchorOffset;
           }
-          // Reset elbow handles when anchor changes so path recomputes with correct defaults
-          if (anchorChanged && arrow.shape === 'elbow') {
+          // Reset shape handles so path recomputes with correct defaults
+          if (arrow.shape === 'elbow') {
             delete arrow.elbowMidValue;
             delete arrow.elbowMidValue2;
             delete arrow.elbowMidValue3;
           }
+          delete arrow.curveArm;
+          delete arrow.curveArm1;
+          delete arrow.curveArm2;
         }
       }
 

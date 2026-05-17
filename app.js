@@ -909,18 +909,20 @@ class App {
       const parent = scSpan.parentNode;
       const frag = document.createDocumentFragment();
       while (scSpan.firstChild) frag.appendChild(scSpan.firstChild);
-      const firstChild = frag.firstChild;
-      const lastChild = frag.lastChild;
+      // Use empty <b> markers that survive normalize()
+      const sMark = document.createElement('b');
+      const eMark = document.createElement('b');
+      parent.insertBefore(sMark, scSpan);
+      parent.insertBefore(eMark, scSpan.nextSibling);
       parent.replaceChild(frag, scSpan);
-      parent.normalize(); // merge adjacent text nodes
-      // Re-select the unwrapped text
+      parent.normalize();
       const newRange = document.createRange();
-      if (firstChild && firstChild.parentNode) {
-        newRange.setStartBefore(firstChild);
-        newRange.setEndAfter(lastChild);
-      }
+      newRange.setStartAfter(sMark);
+      newRange.setEndBefore(eMark);
       sel.removeAllRanges();
       sel.addRange(newRange);
+      sMark.remove();
+      eMark.remove();
     } else {
       // Wrap selection in a small-caps span
       const span = document.createElement('span');

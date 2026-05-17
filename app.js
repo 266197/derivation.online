@@ -1,6 +1,6 @@
 // app.js — Main application class
 import {
-  NODE_LINE_H, getNodePadY, getNodePadX, NODE_MIN_W,
+  getNodePadY, getNodePadX, NODE_MIN_W,
   LEVEL_GAP_BASE, LEVEL_GAP_SINGLE_BASE, getLevelGap, getLevelGapSingle, SIBLING_GAP,
   ELBOW_SNAP, BRANCH_HIT_WIDTH, TRIANGLE_HIT_WIDTH,
   COLORS, FONT_OPTIONS, FONT_SIZES,
@@ -210,8 +210,6 @@ class App {
     this._applyFontCSS();
     if (this.root) {
       this.saveState();
-      measureNodeSize(this.root);
-      layoutTree(this.root);
       this.render();
       this._autoSave();
     }
@@ -222,8 +220,6 @@ class App {
     this._applyFontCSS();
     if (this.root) {
       this.saveState();
-      measureNodeSize(this.root);
-      layoutTree(this.root);
       this.render();
       this._autoSave();
     }
@@ -573,9 +569,27 @@ class App {
     this.undoStack.push({
       tree: this.root ? this.root.toJSON() : null,
       arrows: JSON.parse(JSON.stringify(this.arrows)),
+      selectedId: this.selectedId,
+      selectedIds: [...this.selectedIds],
+      selectedBranchId: this.selectedBranchId,
+      selectedBranchIds: [...this.selectedBranchIds],
+      selectedArrowIdx: this.selectedArrowIdx,
     });
     this.redoStack = [];
     if (this.undoStack.length > 50) this.undoStack.shift();
+  }
+
+  _restoreSelections(state) {
+    this.selectedId = state.selectedId || null;
+    this.selectedIds = new Set(state.selectedIds || []);
+    this.selectedBranchId = state.selectedBranchId || null;
+    this.selectedBranchIds = new Set(state.selectedBranchIds || []);
+    this.selectedArrowIdx = state.selectedArrowIdx != null ? state.selectedArrowIdx : null;
+    this._nodeFormatTarget = null;
+    this.editingNode = null;
+    document.getElementById('branch-format-bar').style.display = this.selectedBranchId ? 'flex' : 'none';
+    document.getElementById('node-fill-bar').style.display = this.selectedId ? 'flex' : 'none';
+    document.getElementById('node-border-bar').style.display = this.selectedId ? 'flex' : 'none';
   }
 
   undo() {
@@ -583,13 +597,16 @@ class App {
     this.redoStack.push({
       tree: this.root ? this.root.toJSON() : null,
       arrows: JSON.parse(JSON.stringify(this.arrows)),
+      selectedId: this.selectedId,
+      selectedIds: [...this.selectedIds],
+      selectedBranchId: this.selectedBranchId,
+      selectedBranchIds: [...this.selectedBranchIds],
+      selectedArrowIdx: this.selectedArrowIdx,
     });
     const state = this.undoStack.pop();
     this.root = state.tree ? TreeNode.fromJSON(state.tree) : null;
     this.arrows = state.arrows || [];
-    this.clearAllSelections();
-    this.editingNode = null;
-    document.getElementById('branch-format-bar').style.display = 'none';
+    this._restoreSelections(state);
     this.render();
   }
 
@@ -598,13 +615,16 @@ class App {
     this.undoStack.push({
       tree: this.root ? this.root.toJSON() : null,
       arrows: JSON.parse(JSON.stringify(this.arrows)),
+      selectedId: this.selectedId,
+      selectedIds: [...this.selectedIds],
+      selectedBranchId: this.selectedBranchId,
+      selectedBranchIds: [...this.selectedBranchIds],
+      selectedArrowIdx: this.selectedArrowIdx,
     });
     const state = this.redoStack.pop();
     this.root = state.tree ? TreeNode.fromJSON(state.tree) : null;
     this.arrows = state.arrows || [];
-    this.clearAllSelections();
-    this.editingNode = null;
-    document.getElementById('branch-format-bar').style.display = 'none';
+    this._restoreSelections(state);
     this.render();
   }
 
@@ -860,9 +880,13 @@ class App {
     const arrow = this.arrows[this.editingArrowIdx];
     if (arrow) {
       const newRuns = htmlToRuns(div);
-      this.saveState();
-      arrow.labelRuns = newRuns.length > 0 && runsToPlainText(newRuns).trim() ? newRuns : [];
-      delete arrow.label; // migrate away from old plain string
+      const newLabel = newRuns.length > 0 && runsToPlainText(newRuns).trim() ? newRuns : [];
+      const oldLabel = JSON.stringify(arrow.labelRuns || []);
+      if (JSON.stringify(newLabel) !== oldLabel) {
+        this.saveState();
+        arrow.labelRuns = newLabel;
+        delete arrow.label;
+      }
     }
     this.editingArrowIdx = null;
     div.remove();
@@ -1774,13 +1798,20 @@ class App {
     const node = this.findNode(this.selectedId);
     if (!node) return;
     this.saveState();
+    // Collect all IDs in the subtree being deleted
+    const removedIds = new Set();
+    const collectIds = (n) => { removedIds.add(n.id); n.children.forEach(collectIds); };
+    collectIds(node);
     if (!node.parent) {
       this.root = null;
     } else {
       const idx = node.parent.children.indexOf(node);
       node.parent.children.splice(idx, 1);
     }
+    // Remove arrows that reference any deleted node
+    this.arrows = this.arrows.filter(a => !removedIds.has(a.fromId) && !removedIds.has(a.toId));
     this.selectedId = null;
+    this.selectedArrowIdx = null;
     this.render();
   }
 

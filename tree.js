@@ -1,6 +1,5 @@
 // tree.js — TreeNode, layout, parsing, color picker, and utility functions
 
-const NODE_LINE_H = 16;
 const NODE_PAD_Y_BASE = 3;
 const NODE_PAD_X_BASE = 4;
 const NODE_MIN_W = 24;
@@ -540,7 +539,7 @@ function measureLineRuns(lineRuns) {
       const scSz = Math.round(sz * 0.8);
       let w = 0;
       for (const ch of r.text) {
-        if (ch >= 'a' && ch <= 'z') {
+        if (ch !== ch.toUpperCase() && ch === ch.toLowerCase()) {
           _mx.font = `${italic}${bold}${scSz}px ${_fontFamily}`;
           w += _mx.measureText(ch.toUpperCase()).width;
         } else {
@@ -714,7 +713,7 @@ function getAnchorDir(anchor) {
 }
 
 export {
-  NODE_LINE_H, getNodePadY, getNodePadX, NODE_MIN_W,
+  getNodePadY, getNodePadX, NODE_MIN_W,
   LEVEL_GAP_BASE, LEVEL_GAP_SINGLE_BASE, getLevelGap, getLevelGapSingle, SIBLING_GAP,
   ELBOW_SNAP, BRANCH_HIT_WIDTH, TRIANGLE_HIT_WIDTH,
   COLORS, FONT_OPTIONS, FONT_SIZES,

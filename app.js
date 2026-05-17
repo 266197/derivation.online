@@ -2859,13 +2859,14 @@ class App {
 <style>
   @page {
     size: A4 ${landscape ? 'landscape' : 'portrait'};
-    margin: 15mm;
+    margin: 0;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
     width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
     overflow: hidden;
+    padding: 15mm;
   }
   svg {
     display: block;

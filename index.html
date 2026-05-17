@@ -87,6 +87,7 @@ button.danger:hover { background: #fdf5f5; }
   flex: 1;
   overflow: auto;
   position: relative;
+  min-height: 0;
   background-color: #fffefa;
   background-image:
     radial-gradient(circle, #e4ddd4 0.7px, transparent 0.7px);
@@ -102,7 +103,7 @@ svg#tree-canvas {
 .node-group { cursor: pointer; }
 
 .node-rect {
-  fill: none;
+  fill: transparent;
   stroke: transparent;
   stroke-width: 1.5;
   rx: 6;
@@ -122,8 +123,8 @@ svg#tree-canvas {
 
 
 .node-label {
-  font-family: 'Times New Roman', Georgia, serif;
-  font-size: 12px;
+  font-family: var(--tree-font, 'Times New Roman', Georgia, serif);
+  font-size: var(--tree-font-size, 12px);
   fill: #333;
   text-anchor: middle;
   dominant-baseline: central;
@@ -185,8 +186,8 @@ svg#tree-canvas {
 
 .inline-edit {
   position: absolute;
-  font-family: 'Times New Roman', Georgia, serif;
-  font-size: 12px;
+  font-family: var(--tree-font, 'Times New Roman', Georgia, serif);
+  font-size: var(--tree-font-size, 12px);
   border: 2px solid #8b7355;
   border-radius: 3px;
   outline: none;
@@ -367,6 +368,7 @@ button.active {
   position: relative;
   overflow: hidden;
   min-height: 0;
+  display: flex;
 }
 
 .side-panel {
@@ -941,6 +943,12 @@ button.active {
       <span>Align bottom</span>
     </label>
   </div>
+  <div class="toolbar-group separator" style="display:flex;align-items:center;gap:4px;">
+    <select id="font-family-select" onchange="app.changeFont(this.value)" style="font-family:-apple-system,sans-serif;font-size:11px;padding:3px 4px;border:1px solid #d4cfc7;border-radius:3px;background:#fff;color:#4a4540;cursor:pointer;outline:none;max-width:110px;">
+    </select>
+    <select id="font-size-select" onchange="app.changeFontSize(Number(this.value))" style="font-family:-apple-system,sans-serif;font-size:11px;padding:3px 4px;border:1px solid #d4cfc7;border-radius:3px;background:#fff;color:#4a4540;cursor:pointer;outline:none;width:45px;">
+    </select>
+  </div>
   <div class="toolbar-group separator export-wrapper">
     <button id="btn-export" onclick="app.toggleExportMenu()">Export ▾</button>
     <div class="export-dropdown" id="export-dropdown" style="display:none">
@@ -968,6 +976,7 @@ button.active {
         <button class="fmt-btn" id="fmt-sub" onmousedown="event.preventDefault()" onclick="app.execFmt('subscript')" title="Subscript" style="font-size:13px;position:relative">X<span style="font-size:8px;position:relative;top:4px">2</span></button>
         <button class="fmt-btn" id="fmt-sup" onmousedown="event.preventDefault()" onclick="app.execFmt('superscript')" title="Superscript" style="font-size:13px;position:relative">X<span style="font-size:8px;position:relative;top:-5px">2</span></button>
         <button class="fmt-btn" id="fmt-strike" onmousedown="event.preventDefault()" onclick="app.execFmt('strikeThrough')" title="Strikethrough" style="font-size:13px"><s>S</s></button>
+        <button class="fmt-btn" id="fmt-smallcaps" onmousedown="event.preventDefault()" onclick="app.execFmt('smallcaps')" title="Small Caps" style="font-size:10px;letter-spacing:0.5px;font-variant:small-caps">Sc</button>
       </div>
       <span class="fmt-label" style="margin-top:4px">Color</span>
       <div id="color-swatches" class="fmt-row"></div>

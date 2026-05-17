@@ -1,9 +1,10 @@
 // app.js — Main application class
 import {
-  NODE_LINE_H, NODE_PAD_Y, NODE_PAD_X, NODE_MIN_W,
-  LEVEL_GAP, LEVEL_GAP_SINGLE, SIBLING_GAP,
+  NODE_LINE_H, getNodePadY, getNodePadX, NODE_MIN_W,
+  LEVEL_GAP_BASE, LEVEL_GAP_SINGLE_BASE, getLevelGap, getLevelGapSingle, SIBLING_GAP,
   ELBOW_SNAP, BRANCH_HIT_WIDTH, TRIANGLE_HIT_WIDTH,
-  COLORS,
+  COLORS, FONT_OPTIONS, FONT_SIZES,
+  getFontFamily, setFontFamily, getFontSize, setFontSize,
   openColorPicker, closeColorPicker, addCustomColorButton,
   hexToRgb, rgbToHex,
   genId, getNextId, setNextId,
@@ -178,8 +179,61 @@ class App {
       this._handleFileLoad(e);
     });
 
+    this._initFontSelectors();
     this._restoreAutoSave();
     this.render();
+  }
+
+  _initFontSelectors() {
+    const famSelect = document.getElementById('font-family-select');
+    const sizeSelect = document.getElementById('font-size-select');
+    FONT_OPTIONS.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.value;
+      opt.textContent = f.label;
+      opt.style.fontFamily = f.value;
+      famSelect.appendChild(opt);
+    });
+    FONT_SIZES.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s + 'px';
+      sizeSelect.appendChild(opt);
+    });
+    famSelect.value = getFontFamily();
+    sizeSelect.value = getFontSize();
+    this._applyFontCSS();
+  }
+
+  changeFont(value) {
+    setFontFamily(value);
+    this._applyFontCSS();
+    if (this.root) {
+      this.saveState();
+      measureNodeSize(this.root);
+      layoutTree(this.root);
+      this.render();
+      this._autoSave();
+    }
+  }
+
+  changeFontSize(value) {
+    setFontSize(value);
+    this._applyFontCSS();
+    if (this.root) {
+      this.saveState();
+      measureNodeSize(this.root);
+      layoutTree(this.root);
+      this.render();
+      this._autoSave();
+    }
+  }
+
+  _applyFontCSS() {
+    this.svg.style.setProperty('--tree-font', getFontFamily());
+    this.svg.style.setProperty('--tree-font-size', getFontSize() + 'px');
+    this.wrapper.style.setProperty('--tree-font', getFontFamily());
+    this.wrapper.style.setProperty('--tree-font-size', getFontSize() + 'px');
   }
 
   // Convert mouse event to SVG coordinates (accounts for scroll)
@@ -688,7 +742,7 @@ class App {
     div.style.top = (svgRect.top - wrapperRect.top + this.wrapper.scrollTop + (node.y - 3)) + 'px';
     div.style.minWidth = Math.max((node.w + 24), 60) + 'px';
     div.style.minHeight = (node.h + 6) + 'px';
-    div.style.fontSize = '12px';
+    div.style.fontSize = getFontSize() + 'px';
 
     div.addEventListener('keydown', (e) => {
       // Shift+Enter or just Enter inserts a new line; plain Enter without shift commits
@@ -823,12 +877,68 @@ class App {
     if (!div) {
       if (this.selectedId) {
         this.startEditing(this.selectedId);
-        setTimeout(() => document.execCommand(command, false), 10);
+        setTimeout(() => this.execFmt(command), 10);
       }
       return;
     }
     div.focus();
-    document.execCommand(command, false);
+    if (command === 'smallcaps') {
+      this._toggleSmallCaps(div);
+    } else {
+      document.execCommand(command, false);
+    }
+  }
+
+  _toggleSmallCaps(editDiv) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+
+    // Walk up from both anchor and focus to find a small-caps span
+    function findSmallCapsSpan(node) {
+      while (node && node !== editDiv) {
+        if (node.nodeType === 1 && node.style && node.style.fontVariant === 'small-caps') return node;
+        node = node.parentNode;
+      }
+      return null;
+    }
+    const scSpan = findSmallCapsSpan(sel.anchorNode) || findSmallCapsSpan(sel.focusNode);
+
+    if (scSpan) {
+      // Remove small-caps: unwrap the span, preserving children
+      const parent = scSpan.parentNode;
+      const frag = document.createDocumentFragment();
+      while (scSpan.firstChild) frag.appendChild(scSpan.firstChild);
+      const firstChild = frag.firstChild;
+      const lastChild = frag.lastChild;
+      parent.replaceChild(frag, scSpan);
+      parent.normalize(); // merge adjacent text nodes
+      // Re-select the unwrapped text
+      const newRange = document.createRange();
+      if (firstChild && firstChild.parentNode) {
+        newRange.setStartBefore(firstChild);
+        newRange.setEndAfter(lastChild);
+      }
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+    } else {
+      // Wrap selection in a small-caps span
+      const span = document.createElement('span');
+      span.style.fontVariant = 'small-caps';
+      try {
+        range.surroundContents(span);
+      } catch (e) {
+        // surroundContents fails if selection crosses element boundaries
+        // Fall back: extract, wrap, re-insert
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+      }
+      sel.removeAllRanges();
+      const newRange = document.createRange();
+      newRange.selectNodeContents(span);
+      sel.addRange(newRange);
+    }
   }
 
   applyColor(hex) {
@@ -1074,6 +1184,7 @@ class App {
           if (r.sub) { tspan.setAttribute('font-size', '7'); tspan.setAttribute('baseline-shift', 'sub'); }
           if (r.sup) { tspan.setAttribute('font-size', '7'); tspan.setAttribute('baseline-shift', 'super'); }
           if (r.strike) tspan.setAttribute('text-decoration', 'line-through');
+          if (r.smallcaps) tspan.setAttribute('font-variant', 'small-caps');
           tspan.setAttribute('fill', r.color || arrowColor);
           lbl.appendChild(tspan);
         }
@@ -1803,10 +1914,11 @@ class App {
       allNodes.forEach(n => { n.x += offsetX; });
     }
 
+    const canvasPad = Math.max(60, getLevelGap());
     let maxX = 0, maxY = 0;
     allNodes.forEach(n => {
-      maxX = Math.max(maxX, n.x + n.w / 2 + 40);
-      maxY = Math.max(maxY, n.y + n.h + 40);
+      maxX = Math.max(maxX, n.x + n.w / 2 + canvasPad);
+      maxY = Math.max(maxY, n.y + n.h + canvasPad);
     });
 
     this.arrows.forEach(arrow => {
@@ -1890,7 +2002,7 @@ class App {
         if (c.triangle) {
           const triGap = c.borderColor ? 3 : 0;
           const naturalDy = c.y - (n.y + n.h);
-          const maxTriH = LEVEL_GAP + 10; // reasonable max triangle height
+          const maxTriH = getLevelGap() + 10; // reasonable max triangle height
           const triTop = naturalDy > maxTriH ? c.y - triGap - maxTriH : n.y + n.h;
 
           // If triangle is capped, draw a stem line from parent to triangle top
@@ -1954,6 +2066,12 @@ class App {
         }
       });
     });
+
+    // Triangle branches rendered before nodes so nodes stay on top
+    if (this._deferredTriangleGroups) {
+      this._deferredTriangleGroups.forEach(g => this.svg.appendChild(g));
+      this._deferredTriangleGroups = null;
+    }
 
     // nodes
     allNodes.forEach(n => {
@@ -2022,11 +2140,6 @@ class App {
       this.svg.appendChild(g);
     });
 
-    // Triangle branches on top of nodes so their edges aren't hidden
-    if (this._deferredTriangleGroups) {
-      this._deferredTriangleGroups.forEach(g => this.svg.appendChild(g));
-      this._deferredTriangleGroups = null;
-    }
 
     this.renderArrows();
     this.updateToolbar();
@@ -2118,6 +2231,8 @@ class App {
         arrows: this.arrows,
         nextId: getNextId(),
         alignBottom: this.alignBottom || false,
+        fontFamily: getFontFamily(),
+        fontSize: getFontSize(),
       };
       localStorage.setItem('merge-autosave', JSON.stringify(data));
     } catch (e) {}
@@ -2137,6 +2252,15 @@ class App {
           this.alignBottom = true;
           document.getElementById('align-bottom-cb').checked = true;
         }
+        if (data.fontFamily) {
+          setFontFamily(data.fontFamily);
+          document.getElementById('font-family-select').value = data.fontFamily;
+        }
+        if (data.fontSize) {
+          setFontSize(data.fontSize);
+          document.getElementById('font-size-select').value = data.fontSize;
+        }
+        this._applyFontCSS();
       }
     } catch (e) {}
   }
@@ -2148,6 +2272,8 @@ class App {
       arrows: this.arrows,
       nextId: getNextId(),
       alignBottom: this.alignBottom || false,
+      fontFamily: getFontFamily(),
+      fontSize: getFontSize(),
     };
   }
 
@@ -2159,6 +2285,15 @@ class App {
     this._syncNextId();
     this.alignBottom = data.alignBottom || false;
     document.getElementById('align-bottom-cb').checked = this.alignBottom;
+    if (data.fontFamily) {
+      setFontFamily(data.fontFamily);
+      document.getElementById('font-family-select').value = data.fontFamily;
+    }
+    if (data.fontSize) {
+      setFontSize(data.fontSize);
+      document.getElementById('font-size-select').value = data.fontSize;
+    }
+    this._applyFontCSS();
     this.selectedId = null;
     this.selectedArrowIdx = null;
     this.editingNode = null;
@@ -2253,7 +2388,7 @@ class App {
     const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     styleEl.textContent = `
       .node-rect { fill: none; stroke: none; }
-      .node-label { font-family: "Times New Roman", Georgia, serif; font-size: 12px;
+      .node-label { font-family: ${getFontFamily()}; font-size: ${getFontSize()}px;
         fill: #333; text-anchor: middle; dominant-baseline: central;
         pointer-events: none; user-select: none; }
       .branch-line { stroke: #333; stroke-width: 1.2; stroke-linecap: round; }
@@ -2261,7 +2396,7 @@ class App {
       .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
       .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
       .arrow-head { fill: #333; stroke: none; }
-      .arrow-label { font-family: 'Times New Roman', Georgia, serif; font-size: 11px; fill: #333; text-anchor: middle; }
+      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.92)}px; fill: #333; text-anchor: middle; }
       .anchor-dot { display: none; }
     `;
 
@@ -2351,14 +2486,14 @@ class App {
     const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
     styleEl.textContent = `
       .node-rect { fill: none; stroke: none; }
-      .node-label { font-family: "Times New Roman", Georgia, serif; font-size: 12px;
+      .node-label { font-family: ${getFontFamily()}; font-size: ${getFontSize()}px;
         fill: #333; text-anchor: middle; dominant-baseline: central; }
       .branch-line { stroke: #333; stroke-width: 1.2; stroke-linecap: round; }
       .branch-fan { stroke: #333; stroke-width: 1.2; fill: none; stroke-linejoin: miter; stroke-miterlimit: 10; stroke-linecap: round; }
       .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
       .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
       .arrow-head { fill: #333; stroke: none; }
-      .arrow-label { font-family: 'Times New Roman', Georgia, serif; font-size: 11px; fill: #333; text-anchor: middle; }
+      .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.92)}px; fill: #333; text-anchor: middle; }
     `;
 
     // Reorder layers

@@ -1,15 +1,37 @@
 // tree.js — TreeNode, layout, parsing, color picker, and utility functions
 
 const NODE_LINE_H = 16;
-const NODE_PAD_Y = 3;
-const NODE_PAD_X = 4;
+const NODE_PAD_Y_BASE = 3;
+const NODE_PAD_X_BASE = 4;
 const NODE_MIN_W = 24;
-const LEVEL_GAP = 55;
-const LEVEL_GAP_SINGLE = 40;
+function getNodePadX() { return Math.round(NODE_PAD_X_BASE * (_fontSize / 12)); }
+function getNodePadY() { return Math.round(NODE_PAD_Y_BASE * (_fontSize / 12)); }
+const LEVEL_GAP_BASE = 55;
+const LEVEL_GAP_SINGLE_BASE = 40;
 const SIBLING_GAP = 16;
 const ELBOW_SNAP = 12;         // snap threshold for elbow drag near extension points
 const BRANCH_HIT_WIDTH = 24;   // invisible stroke width for branch click hit area
 const TRIANGLE_HIT_WIDTH = 20; // invisible stroke width for triangle click hit area
+
+// ── Font settings ──
+const FONT_OPTIONS = [
+  { label: 'Times New Roman', value: '"Times New Roman", Georgia, serif' },
+  { label: 'Palatino', value: '"Palatino Linotype", Palatino, "Book Antiqua", serif' },
+  { label: 'Arial', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Courier', value: '"Courier New", Courier, monospace' },
+];
+
+const FONT_SIZES = [10, 11, 12, 13, 14, 16, 18, 20];
+
+let _fontFamily = FONT_OPTIONS[0].value;
+let _fontSize = 12;
+
+function getFontFamily() { return _fontFamily; }
+function setFontFamily(f) { _fontFamily = f; }
+function getFontSize() { return _fontSize; }
+function setFontSize(s) { _fontSize = s; }
+function getLevelGap() { return Math.round(LEVEL_GAP_BASE * (_fontSize / 12)); }
+function getLevelGapSingle() { return Math.round(LEVEL_GAP_SINGLE_BASE * (_fontSize / 12)); }
 
 const COLORS = [
   { name: 'Black',  hex: '#333333' },
@@ -318,6 +340,7 @@ function runsToHTML(runs) {
     if (r.sub) t = `<sub>${t}</sub>`;
     if (r.sup) t = `<sup>${t}</sup>`;
     if (r.strike) t = `<s>${t}</s>`;
+    if (r.smallcaps) t = `<span style="font-variant:small-caps">${t}</span>`;
     if (r.color && r.color !== '#333333') t = `<span style="color:${r.color}">${t}</span>`;
     return t;
   }).join('');
@@ -350,6 +373,9 @@ function htmlToRuns(el) {
     if (node.style && node.style.color) {
       f.color = rgbToHex(node.style.color);
     }
+    if (node.style && node.style.fontVariant === 'small-caps') {
+      f.smallcaps = true;
+    }
     if (tag === 'span' || tag === 'font') {
       const c = node.getAttribute('color');
       if (c) f.color = c;
@@ -373,7 +399,8 @@ function htmlToRuns(el) {
     const last = merged[merged.length - 1];
     if (last && !!last.bold === !!r.bold && !!last.italic === !!r.italic &&
         !!last.sub === !!r.sub && !!last.sup === !!r.sup &&
-        !!last.strike === !!r.strike && (last.color || '') === (r.color || '')) {
+        !!last.strike === !!r.strike && !!last.smallcaps === !!r.smallcaps &&
+        (last.color || '') === (r.color || '')) {
       last.text += r.text;
     } else {
       merged.push({ ...r });
@@ -386,6 +413,7 @@ function htmlToRuns(el) {
     if (r.sub) o.sub = true;
     if (r.sup) o.sup = true;
     if (r.strike) o.strike = true;
+    if (r.smallcaps) o.smallcaps = true;
     if (r.color && r.color !== '#333333') o.color = r.color;
     return o;
   });
@@ -502,14 +530,35 @@ const _mx = _mc.getContext('2d');
 
 function measureLineRuns(lineRuns) {
   let total = 0;
+  const subSupSz = Math.round(_fontSize * 0.67);
   for (const r of lineRuns) {
-    const sz = (r.sub || r.sup) ? 8 : 12;
+    const sz = (r.sub || r.sup) ? subSupSz : _fontSize;
     const bold = r.bold ? 'bold ' : '';
     const italic = r.italic ? 'italic ' : '';
-    _mx.font = `${italic}${bold}${sz}px "Times New Roman", Georgia, serif`;
-    total += _mx.measureText(r.text).width;
+    if (r.smallcaps) {
+      // small-caps: uppercase stays full size, lowercase rendered as ~80%-sized uppercase
+      const scSz = Math.round(sz * 0.8);
+      let w = 0;
+      for (const ch of r.text) {
+        if (ch >= 'a' && ch <= 'z') {
+          _mx.font = `${italic}${bold}${scSz}px ${_fontFamily}`;
+          w += _mx.measureText(ch.toUpperCase()).width;
+        } else {
+          _mx.font = `${italic}${bold}${sz}px ${_fontFamily}`;
+          w += _mx.measureText(ch).width;
+        }
+      }
+      total += w;
+    } else {
+      _mx.font = `${italic}${bold}${sz}px ${_fontFamily}`;
+      total += _mx.measureText(r.text).width;
+    }
   }
   return total;
+}
+
+function getLineHeight() {
+  return Math.round(_fontSize * 1.35);
 }
 
 function measureNodeSize(node) {
@@ -518,8 +567,11 @@ function measureNodeSize(node) {
   for (const line of lines) {
     maxW = Math.max(maxW, measureLineRuns(line));
   }
-  const w = Math.max(NODE_MIN_W, maxW + NODE_PAD_X * 2);
-  const h = NODE_PAD_Y * 2 + lines.length * NODE_LINE_H;
+  const lineH = getLineHeight();
+  const padX = getNodePadX();
+  const padY = getNodePadY();
+  const w = Math.max(NODE_MIN_W, maxW + padX * 2);
+  const h = padY * 2 + lines.length * lineH;
   return { w, h };
 }
 
@@ -551,8 +603,8 @@ function layoutTree(root, alignBottom) {
         + SIBLING_GAP * (node.children.length - 1);
       let cx = left + (node.subtreeW - childrenTotalW) / 2;
       node.children.forEach(c => {
-        const gap = node.children.length === 1 ? LEVEL_GAP_SINGLE : LEVEL_GAP;
-        assignPositions(c, cx, top + node.h + gap - NODE_PAD_Y * 2 - NODE_LINE_H);
+        const gap = node.children.length === 1 ? getLevelGapSingle() : getLevelGap();
+        assignPositions(c, cx, top + node.h + gap - getNodePadY() * 2 - getLineHeight());
         cx += c.subtreeW + SIBLING_GAP;
       });
       const first = node.children[0];
@@ -583,8 +635,8 @@ function layoutTree(root, alignBottom) {
       if (n.isLeaf) return;
       n.children.forEach(adjustParents);
       const minChildY = Math.min(...n.children.map(c => c.y));
-      const gap = n.children.length === 1 ? LEVEL_GAP_SINGLE : LEVEL_GAP;
-      const naturalY = minChildY - gap + NODE_PAD_Y * 2 + NODE_LINE_H - n.h;
+      const gap = n.children.length === 1 ? getLevelGapSingle() : getLevelGap();
+      const naturalY = minChildY - gap + getNodePadY() * 2 + getLineHeight() - n.h;
       // Only move down, never up
       if (naturalY > n.y) n.y = naturalY;
     }
@@ -596,8 +648,9 @@ function layoutTree(root, alignBottom) {
 
 function createSvgRunSpans(textEl, runs, cx, cy, nodeH) {
   const lines = splitRunsIntoLines(runs);
-  const totalTextH = lines.length * NODE_LINE_H;
-  const startY = cy - totalTextH / 2 + NODE_LINE_H / 2;
+  const lineH = getLineHeight();
+  const totalTextH = lines.length * lineH;
+  const startY = cy - totalTextH / 2 + lineH / 2;
 
   lines.forEach((lineRuns, li) => {
     if (lineRuns.length === 0) return;
@@ -611,25 +664,26 @@ function createSvgRunSpans(textEl, runs, cx, cy, nodeH) {
         if (li === 0) {
           tspan.setAttribute('y', startY);
         } else {
-          tspan.setAttribute('dy', NODE_LINE_H);
+          tspan.setAttribute('dy', lineH);
         }
       }
       if (r.bold) tspan.setAttribute('font-weight', 'bold');
       if (r.italic) tspan.setAttribute('font-style', 'italic');
       if (r.sub) {
-        tspan.setAttribute('font-size', '8');
+        tspan.setAttribute('font-size', Math.round(_fontSize * 0.67));
         tspan.setAttribute('baseline-shift', 'sub');
         needsReset = true;
       } else if (r.sup) {
-        tspan.setAttribute('font-size', '8');
+        tspan.setAttribute('font-size', Math.round(_fontSize * 0.67));
         tspan.setAttribute('baseline-shift', 'super');
         needsReset = true;
       } else if (needsReset) {
-        tspan.setAttribute('font-size', '12');
+        tspan.setAttribute('font-size', _fontSize);
         tspan.setAttribute('baseline-shift', '0');
         needsReset = false;
       }
       if (r.strike) tspan.setAttribute('text-decoration', 'line-through');
+      if (r.smallcaps) tspan.setAttribute('font-variant', 'small-caps');
       if (r.color) tspan.setAttribute('fill', r.color);
       textEl.appendChild(tspan);
     });
@@ -660,10 +714,11 @@ function getAnchorDir(anchor) {
 }
 
 export {
-  NODE_LINE_H, NODE_PAD_Y, NODE_PAD_X, NODE_MIN_W,
-  LEVEL_GAP, LEVEL_GAP_SINGLE, SIBLING_GAP,
+  NODE_LINE_H, getNodePadY, getNodePadX, NODE_MIN_W,
+  LEVEL_GAP_BASE, LEVEL_GAP_SINGLE_BASE, getLevelGap, getLevelGapSingle, SIBLING_GAP,
   ELBOW_SNAP, BRANCH_HIT_WIDTH, TRIANGLE_HIT_WIDTH,
-  COLORS,
+  COLORS, FONT_OPTIONS, FONT_SIZES,
+  getFontFamily, setFontFamily, getFontSize, setFontSize,
   openColorPicker, closeColorPicker, addCustomColorButton,
   getFavoriteColors, addFavoriteColor, removeFavoriteColor,
   hexToRgb, rgbToHsv, hsvToHex, rgbToHex,
@@ -671,7 +726,7 @@ export {
   defaultRuns, runsToPlainText, getArrowLabelRuns,
   splitRunsIntoLines, runsToHTML, escHtml, htmlToRuns,
   TreeNode, parseBracketNotation,
-  measureNodeSize, measureLineRuns,
+  measureNodeSize, measureLineRuns, getLineHeight,
   layoutTree,
   createSvgRunSpans,
   getAnchorPos, getAnchorDir,

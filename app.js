@@ -67,7 +67,7 @@ class App {
 
     document.addEventListener('keydown', (e) => {
       const mod = e.metaKey || e.ctrlKey;
-      const inEdit = e.target.closest('.inline-edit') || e.target.tagName === 'INPUT';
+      const inEdit = e.target.closest('.inline-edit') || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
 
       // Escape — cancel arrow mode, editing, or deselect
       if (e.key === 'Escape') {

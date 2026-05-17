@@ -562,10 +562,12 @@ class TreeNode {
     return this.children.reduce((s, c) => s + c.leafCount, 0);
   }
 
-  toLabeledBrackets() {
+  toLabeledBrackets(indent = 0) {
+    const pad = '  '.repeat(indent);
     const lbl = runsToFormattedText(this.runs).replace(/\n/g, '\\\\');
-    if (this.isLeaf) return `[${lbl}]`;
-    return `[${lbl} ${this.children.map(c => c.toLabeledBrackets()).join(' ')}]`;
+    if (this.isLeaf) return `${pad}[${lbl}]`;
+    const children = this.children.map(c => c.toLabeledBrackets(indent + 1)).join('\n');
+    return `${pad}[${lbl}\n${children}\n${pad}]`;
   }
 
   toJSON() {
@@ -626,7 +628,7 @@ function parseBracketNotation(str) {
     if (str[pos] === ']') pos++;
     return node;
   }
-  function skipWs() { while (pos < str.length && str[pos] === ' ') pos++; }
+  function skipWs() { while (pos < str.length && (str[pos] === ' ' || str[pos] === '\n' || str[pos] === '\r' || str[pos] === '\t')) pos++; }
   return parse(null);
 }
 

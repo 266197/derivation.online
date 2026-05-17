@@ -52,6 +52,7 @@ class App {
     this.bracketInput = document.getElementById('bracket-input');
 
     this.sidePanel = document.getElementById('side-panel');
+
     this.buildColorSwatches();
     this.buildBranchColorSwatches();
     this.buildNodeFillSwatches();
@@ -281,6 +282,48 @@ class App {
         e.preventDefault();
         this.parseBrackets();
       }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const ta = e.target;
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        if (e.shiftKey) {
+          // Shift+Tab: outdent selected lines
+          const val = ta.value;
+          const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+          const lineEnd = end;
+          const block = val.substring(lineStart, lineEnd);
+          const outdented = block.replace(/^  /gm, '');
+          const removed = block.length - outdented.length;
+          ta.value = val.substring(0, lineStart) + outdented + val.substring(lineEnd);
+          ta.selectionStart = Math.max(lineStart, start - (val.substring(lineStart, start).match(/^  /) ? 2 : 0));
+          ta.selectionEnd = end - removed;
+        } else if (start !== end) {
+          // Tab with selection: indent all selected lines
+          const val = ta.value;
+          const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+          const block = val.substring(lineStart, end);
+          const indented = block.replace(/^/gm, '  ');
+          const added = indented.length - block.length;
+          ta.value = val.substring(0, lineStart) + indented + val.substring(end);
+          ta.selectionStart = start + 2;
+          ta.selectionEnd = end + added;
+        } else {
+          // Tab without selection: insert two spaces
+          ta.value = ta.value.substring(0, start) + '  ' + ta.value.substring(end);
+          ta.selectionStart = ta.selectionEnd = start + 2;
+        }
+      }
+    });
+
+    // Bracket highlighting
+    this.bracketBackdrop = document.getElementById('bracket-backdrop');
+    this.bracketInput.addEventListener('input', () => this._highlightBrackets());
+    this.bracketInput.addEventListener('keyup', () => this._highlightBrackets());
+    this.bracketInput.addEventListener('click', () => this._highlightBrackets());
+    this.bracketInput.addEventListener('scroll', () => {
+      this.bracketBackdrop.scrollTop = this.bracketInput.scrollTop;
+      this.bracketBackdrop.scrollLeft = this.bracketInput.scrollLeft;
     });
 
     document.getElementById('file-input').addEventListener('change', (e) => {
@@ -288,6 +331,7 @@ class App {
     });
 
     this._initFontSelectors();
+    this._initSidePanelResize();
     document.getElementById('zoom-level').addEventListener('dblclick', () => this.zoomReset());
 
     // Restore from URL hash (shared link) or fall back to autosave
@@ -752,8 +796,7 @@ class App {
     }
     if (state.alignBottom != null) {
       this.alignBottom = state.alignBottom;
-      const cb = document.getElementById('align-bottom-cb');
-      if (cb) cb.checked = this.alignBottom;
+      this._updateAlignBottomBtn();
     }
     this._applyFontCSS();
     // Clear all selections
@@ -861,7 +904,7 @@ class App {
     dd.style.display = visible ? 'none' : 'block';
     if (!visible) {
       const close = (e) => {
-        if (!e.target.closest('.toolbar-dropdown-wrapper')) {
+        if (!e.target.closest('.toolbar-dropdown') && !e.target.closest('.tb-dropdown-wrap') && !e.target.closest('.menu-bar')) {
           document.querySelectorAll('.toolbar-dropdown').forEach(d => d.style.display = 'none');
           document.removeEventListener('click', close, true);
         }
@@ -1206,7 +1249,13 @@ class App {
   toggleAlignBottom(on) {
     if (this.root) this.saveState();
     this.alignBottom = on;
+    this._updateAlignBottomBtn();
     if (this.root) this.render();
+  }
+
+  _updateAlignBottomBtn() {
+    const btn = document.getElementById('btn-align-bottom');
+    if (btn) btn.classList.toggle('on', this.alignBottom);
   }
 
   // --- Arrows rendering ---
@@ -2441,6 +2490,7 @@ class App {
     if (!this.root) {
       this.nodeMap.clear();
       this.bracketInput.value = '';
+      this._highlightBrackets();
       this.updateToolbar();
       return;
     }
@@ -2449,6 +2499,7 @@ class App {
     applyOffsets(this.root);
     if (document.activeElement !== this.bracketInput) {
       this.bracketInput.value = this.root.toLabeledBrackets();
+      this._highlightBrackets();
     }
 
     const allNodes = [];
@@ -2967,6 +3018,143 @@ class App {
     document.getElementById('context-menu').style.display = 'none';
   }
 
+  _initSidePanelResize() {
+    const handle = document.getElementById('side-panel-resize');
+    const panel = document.getElementById('side-panel');
+    const toggle = document.getElementById('side-panel-toggle');
+    let startX, startW;
+
+    handle.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      startX = e.clientX;
+      startW = panel.offsetWidth;
+      panel.classList.add('resizing');
+      handle.classList.add('dragging');
+      handle.setPointerCapture(e.pointerId);
+
+      const onMove = (ev) => {
+        const newW = Math.max(150, Math.min(600, startW + ev.clientX - startX));
+        panel.style.width = newW + 'px';
+        panel.style.minWidth = newW + 'px';
+        toggle.style.left = newW + 'px';
+      };
+
+      const onUp = () => {
+        panel.classList.remove('resizing');
+        handle.classList.remove('dragging');
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+      };
+
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp);
+    });
+  }
+
+  toggleSidePanel() {
+    const panel = document.getElementById('side-panel');
+    const btn = document.getElementById('side-panel-toggle');
+    const arrow = btn.querySelector('.toggle-arrow');
+    if (!panel.classList.contains('collapsed')) {
+      this._sidePanelWidth = panel.offsetWidth;
+    }
+    panel.classList.toggle('collapsed');
+    const collapsed = panel.classList.contains('collapsed');
+    arrow.textContent = collapsed ? '▶' : '◀';
+    btn.style.left = collapsed ? '0px' : (this._sidePanelWidth || 220) + 'px';
+    // Re-render after transition so tree re-centers to new canvas width
+    panel.addEventListener('transitionend', () => {
+      if (this.root) this.render();
+    }, { once: true });
+  }
+
+  toggleBracketHelp() {
+    const el = document.getElementById('bracket-help');
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  _highlightBrackets() {
+    const text = this.bracketInput.value;
+    const cursor = this.bracketInput.selectionStart;
+    const depthColors = 5; // number of depth color classes
+
+    // Find all bracket positions and their depths
+    const brackets = [];
+    let depth = 0;
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '[') {
+        brackets.push({ pos: i, ch: '[', depth: depth });
+        depth++;
+      } else if (text[i] === ']') {
+        depth--;
+        brackets.push({ pos: i, ch: ']', depth: Math.max(0, depth) });
+      }
+    }
+
+    // Build matching pairs
+    const matchMap = {};
+    const stack = [];
+    for (const b of brackets) {
+      if (b.ch === '[') {
+        stack.push(b.pos);
+      } else if (b.ch === ']') {
+        if (stack.length > 0) {
+          const openPos = stack.pop();
+          matchMap[openPos] = b.pos;
+          matchMap[b.pos] = openPos;
+        } else {
+          matchMap[b.pos] = -1; // unmatched
+        }
+      }
+    }
+    // Remaining unmatched opens
+    for (const pos of stack) {
+      matchMap[pos] = -1;
+    }
+
+    // Find which bracket the cursor is near
+    let matchA = -1, matchB = -1;
+    for (const b of brackets) {
+      if (b.pos === cursor || b.pos === cursor - 1) {
+        const partner = matchMap[b.pos];
+        if (partner !== undefined && partner >= 0) {
+          matchA = b.pos;
+          matchB = partner;
+        }
+        break;
+      }
+    }
+
+    // Build highlighted HTML
+    const depthAt = {};
+    const errSet = new Set();
+    for (const b of brackets) {
+      depthAt[b.pos] = b.depth;
+      if (matchMap[b.pos] === -1) errSet.add(b.pos);
+    }
+
+    let html = '';
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const escaped = ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch;
+      if (ch === '[' || ch === ']') {
+        const d = depthAt[i] !== undefined ? depthAt[i] : 0;
+        let cls = 'br-d' + (d % depthColors);
+        if (errSet.has(i)) cls = 'br-err';
+        if (i === matchA || i === matchB) cls += ' br-match';
+        html += `<span class="${cls}">${escaped}</span>`;
+      } else {
+        html += escaped;
+      }
+    }
+    // Add trailing newline so backdrop height matches textarea
+    html += '\n';
+
+    this.bracketBackdrop.innerHTML = html;
+    this.bracketBackdrop.scrollTop = this.bracketInput.scrollTop;
+    this.bracketBackdrop.scrollLeft = this.bracketInput.scrollLeft;
+  }
+
   parseBrackets() {
     const input = this.bracketInput.value.trim();
     if (!input) return;
@@ -3017,7 +3205,7 @@ class App {
         this._syncNextId();
         if (data.alignBottom) {
           this.alignBottom = true;
-          document.getElementById('align-bottom-cb').checked = true;
+          this._updateAlignBottomBtn();
         }
         if (data.fontFamily) {
           setFontFamily(data.fontFamily);
@@ -3051,7 +3239,7 @@ class App {
     if (data.nextId) setNextId(data.nextId);
     this._syncNextId();
     this.alignBottom = data.alignBottom || false;
-    document.getElementById('align-bottom-cb').checked = this.alignBottom;
+    this._updateAlignBottomBtn();
     if (data.fontFamily) {
       setFontFamily(data.fontFamily);
       document.getElementById('font-family-select').value = data.fontFamily;
@@ -3107,7 +3295,7 @@ class App {
         if (data.nextId) setNextId(data.nextId);
         this._syncNextId();
         this.alignBottom = data.alignBottom || false;
-        document.getElementById('align-bottom-cb').checked = this.alignBottom;
+        this._updateAlignBottomBtn();
         if (data.fontFamily) {
           setFontFamily(data.fontFamily);
           document.getElementById('font-family-select').value = data.fontFamily;

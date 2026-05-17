@@ -59,87 +59,154 @@ body {
   overflow: hidden;
 }
 
-header {
-  background: #fff;
-  border-bottom: 1px solid #e0dcd4;
-  padding: 8px 20px;
+/* ── Title bar ── */
+.title-bar {
+  background: #f8f9fa;
+  padding: 6px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
-  z-index: 10;
+  z-index: 20;
+  position: relative;
+  border-bottom: 1px solid #e8e4dc;
 }
 
-header h1 {
-  font-size: 17px;
+.title-bar h1 {
+  font-size: 16px;
   font-weight: 600;
   font-family: 'Palatino Linotype', Palatino, Georgia, serif;
   font-style: italic;
   color: #3d3530;
   letter-spacing: 0.3px;
-  min-width: 180px;
-  box-sizing: border-box;
-  padding-left: 12px;
+  margin: 0;
 }
 
-.toolbar-group {
+.menu-bar {
   display: flex;
+  gap: 0;
+  margin-left: 16px;
+}
+
+.menu-bar button {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #444;
+  cursor: pointer;
+}
+.menu-bar button:hover { background: #e8e5e0; }
+
+.title-bar .title-spacer { flex: 1; }
+
+.title-bar-link {
+  font-size: 12px;
+  color: #888;
+  text-decoration: none;
+  font-family: -apple-system, sans-serif;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+.title-bar-link:hover { color: #555; background: #e8e5e0; }
+
+.title-bar-btn {
+  font-size: 12px;
+  padding: 3px 10px !important;
+  background: none;
+  border: none !important;
+  color: #888;
+  font-family: -apple-system, sans-serif;
+  border-radius: 3px;
+}
+.title-bar-btn:hover { color: #555; background: #e8e5e0; }
+
+/* ── Toolbar ── */
+header {
+  background: #fff;
+  border-bottom: 1px solid #dadce0;
+  padding: 2px 8px;
+  display: flex;
+  align-items: center;
   gap: 2px;
+  flex-shrink: 0;
+  z-index: 10;
+  flex-wrap: nowrap;
+  min-height: 36px;
+}
+
+.tb-sep {
+  width: 1px;
+  height: 20px;
+  background: #dadce0;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.tb-group {
+  display: flex;
+  gap: 1px;
   align-items: center;
 }
 
-.toolbar-group.separator {
-  border-left: 1px solid #e0dcd4;
-  padding-left: 8px;
-  margin-left: 4px;
-}
-
-.toolbar-spacer { flex: 1; }
-
-.toolbar-link {
-  font-size: 11px;
-  color: #998e80;
-  text-decoration: none;
-  font-family: -apple-system, sans-serif;
-}
-.toolbar-link:hover { color: #6b5740; }
-
-.toolbar-text-btn {
-  font-size: 11px;
-  padding: 4px 8px;
+/* Toolbar icon buttons — Google Docs style */
+.tb-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  border: none !important;
+  border-radius: 4px !important;
   background: none;
-  border: 1px solid #d4cfc7;
-  color: #6b5740;
+  color: #444;
+  cursor: pointer;
+  transition: background 0.08s;
+  flex-shrink: 0;
 }
+.tb-btn:hover { background: #e8e5e0; }
+.tb-btn:active { background: #d8d5d0; }
+.tb-btn.active, .tb-btn.on { background: #d3e3fd; color: #1a73e8; }
+.tb-btn:disabled { opacity: 0.3; cursor: default; background: none; }
+.tb-btn.danger { color: #c5221f; }
+.tb-btn.danger:hover { background: #fce8e6; }
+.tb-btn svg { display: block; }
 
-/* Icon-only buttons in toolbar */
-.toolbar-group > button {
-  padding: 5px 7px;
-}
-.toolbar-group > button svg {
-  display: block;
-}
+/* Dropdown trigger in toolbar */
+.tb-dropdown-wrap { position: relative; }
 
-/* Dropdown menus */
-.toolbar-dropdown-wrapper { position: relative; }
-
-.dropdown-caret {
-  font-size: 9px;
-  opacity: 0.6;
+.tb-dropdown-btn {
+  height: 30px;
+  padding: 0 8px !important;
+  display: flex !important;
+  align-items: center;
+  gap: 4px;
+  border: none !important;
+  border-radius: 4px !important;
+  background: none;
+  color: #444;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  white-space: nowrap;
 }
+.tb-dropdown-btn:hover { background: #e8e5e0; }
+.tb-dropdown-btn .caret { font-size: 8px; opacity: 0.5; }
 
 .toolbar-dropdown {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 2px);
   left: 0;
   background: #fff;
-  border: 1px solid #e0dcd4;
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(80,60,30,0.1);
-  min-width: 190px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+  min-width: 200px;
   z-index: 50;
-  padding: 4px 0;
-  animation: dropdown-in 0.1s ease-out;
+  padding: 6px 0;
 }
 
 .toolbar-dropdown button {
@@ -147,7 +214,7 @@ header h1 {
   border: none;
   border-radius: 0;
   background: none;
-  padding: 7px 14px;
+  padding: 6px 16px;
   font-size: 13px;
   color: #333;
   cursor: pointer;
@@ -155,22 +222,22 @@ header h1 {
   display: flex;
   gap: 8px;
 }
-.toolbar-dropdown button:hover { background: #f7f2eb; }
+.toolbar-dropdown button:hover { background: #f1f3f4; }
 
 .dropdown-hint {
   margin-left: auto;
   font-size: 11px;
-  color: #aaa;
+  color: #999;
 }
 
 .dropdown-divider {
   height: 1px;
-  background: #e8e4dc;
+  background: #e8eaed;
   margin: 4px 0;
 }
 
 .dropdown-row {
-  padding: 7px 14px;
+  padding: 6px 16px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -179,22 +246,39 @@ header h1 {
 .dropdown-label {
   font-family: -apple-system, sans-serif;
   font-size: 12px;
-  color: #6b5740;
+  color: #555;
   min-width: 32px;
 }
 
 .dropdown-row select {
   font-family: -apple-system, sans-serif;
   font-size: 12px;
-  padding: 3px 4px;
-  border: 1px solid #d4cfc7;
-  border-radius: 3px;
+  padding: 3px 6px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
   background: #fff;
-  color: #4a4540;
+  color: #333;
   cursor: pointer;
   outline: none;
   flex: 1;
 }
+
+.toolbar-spacer { flex: 1; }
+
+/* Font selectors in toolbar */
+.tb-select {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  background: #fff;
+  font-family: -apple-system, sans-serif;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+  outline: none;
+}
+.tb-select:hover { border-color: #bbb; }
 
 button {
   padding: 5px 12px;
@@ -235,7 +319,7 @@ button.danger:hover { background: #fdf5f5; }
   min-height: 0;
   background-color: #fffefa;
   background-image:
-    radial-gradient(circle, #e4ddd4 0.7px, transparent 0.7px);
+    radial-gradient(circle, #d5cec4 0.8px, transparent 0.8px);
   background-size: 20px 20px;
 }
 
@@ -401,18 +485,21 @@ svg#tree-canvas.arrow-mode-active {
 .inline-edit sub, .inline-edit sup { font-size: 0.7em; }
 
 .bracket-panel {
-  background: #fff;
-  border-top: 1px solid #e0dcd4;
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .bracket-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 20px;
-  cursor: pointer;
+  padding: 8px 12px 4px;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .bracket-header label {
@@ -422,69 +509,148 @@ svg#tree-canvas.arrow-mode-active {
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 5px;
 }
 
-.bracket-header .bracket-toggle {
-  font-size: 9px;
-  transition: transform 0.15s;
-}
-
-.bracket-panel.open .bracket-toggle {
-  transform: rotate(180deg);
-}
-
-.bracket-header .bracket-hint {
-  font-family: -apple-system, sans-serif;
-  font-size: 10px;
-  color: #bbb;
-  margin-left: auto;
-}
-
 .bracket-body {
-  display: none;
-  padding: 0 20px 10px;
-}
-
-.bracket-panel.open .bracket-body {
   display: flex;
+  padding: 0 10px 10px;
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   gap: 6px;
 }
 
-.bracket-body textarea {
-  width: 100%;
-  min-height: 150px;
-  max-height: 400px;
+.bracket-editor {
+  position: relative;
+  flex: 1;
+  min-height: 80px;
+  display: flex;
+}
+
+.bracket-backdrop {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
   font-family: 'Courier New', monospace;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-sizing: border-box;
+  white-space: pre;
+  overflow: auto;
+  pointer-events: none;
+  color: #4a4540;
+  background: #fff;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+.bracket-body textarea {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
   line-height: 1.5;
   border: 1px solid #d4cfc7;
   border-radius: 4px;
   padding: 8px 10px;
   outline: none;
-  background: #fffefa;
-  resize: vertical;
+  background: transparent;
+  resize: none;
   color: #4a4540;
   box-sizing: border-box;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+  z-index: 1;
+  caret-color: #4a4540;
 }
 
-.bracket-body textarea:focus { border-color: #8b7355; }
+.bracket-body textarea:focus { border-color: #a89880; box-shadow: 0 0 0 2px rgba(139,115,85,0.1); }
+
+.bracket-backdrop .br-d0 { color: #2563eb; font-weight: 600; }
+.bracket-backdrop .br-d1 { color: #d97706; font-weight: 600; }
+.bracket-backdrop .br-d2 { color: #059669; font-weight: 600; }
+.bracket-backdrop .br-d3 { color: #9333ea; font-weight: 600; }
+.bracket-backdrop .br-d4 { color: #dc2626; font-weight: 600; }
+.bracket-backdrop .br-match { background: #fde68a; border-radius: 2px; }
+.bracket-backdrop .br-err { color: #dc2626; background: #fee2e2; border-radius: 2px; }
 
 .bracket-body .bracket-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
-.bracket-body .bracket-ref {
+.bracket-help-btn {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px;
+  max-width: 20px;
+  min-height: 20px;
+  max-height: 20px;
+  border-radius: 50% !important;
+  border: 1px solid #d4cfc7;
+  background: #fff;
+  color: #998e80;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 !important;
+  line-height: 18px;
+  text-align: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  flex-grow: 0;
+  box-sizing: border-box;
+  display: inline-block !important;
+  justify-content: center;
+  align-items: center;
+}
+.bracket-help-btn:hover { background: #f5f0ea; color: #6b5d4f; }
+
+.bracket-help {
+  flex-shrink: 0;
+  background: #eae6df;
+  border: 1px solid #ddd8d0;
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+.bracket-help-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  color: #5a5550;
+}
+.bracket-help-table td {
+  padding: 2px 0;
+  vertical-align: top;
+}
+.bracket-help-table td:first-child {
+  padding-right: 8px;
+  white-space: nowrap;
+}
+.bracket-help-table code {
   font-family: 'Courier New', monospace;
   font-size: 11px;
-  color: #b0a898;
-  margin-left: auto;
+  color: #6b5d4f;
+}
+.bracket-help-table kbd {
+  font-family: -apple-system, sans-serif;
+  font-size: 10px;
+  background: #e8e4dc;
+  border-radius: 3px;
+  padding: 1px 4px;
+  color: #4a4540;
 }
 
 .context-menu {
@@ -628,13 +794,18 @@ svg#tree-canvas.arrow-mode-active {
   stroke-dasharray: 4 2;
 }
 
-button.active {
-  background: #f7f2eb;
-  border-color: #8b7355;
-  color: #6b5740;
+button.active, .tb-btn.active {
+  background: #d3e3fd !important;
+  color: #1a73e8 !important;
+  border-color: transparent;
 }
 
-/* Format bar */
+.toolbar-format-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
 /* ── Main layout: side panel + canvas ── */
 .main-area {
   flex: 1;
@@ -645,23 +816,97 @@ button.active {
 }
 
 .side-panel {
-  width: 180px;
-  min-width: 180px;
-  overflow-y: auto;
-  background: rgba(255,254,250,0.96);
+  width: 220px;
+  background: #f5f2ed;
   border-right: 1px solid #e0dcd4;
   flex-shrink: 0;
-}
-
-.format-bar {
-  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border-bottom: 1px solid #e8e4dc;
+  overflow: hidden;
+  transition: width 0.2s ease, min-width 0.2s ease;
+  min-width: 220px;
+  position: relative;
 }
 
-.format-bar .fmt-label {
+.side-panel.collapsed {
+  width: 0;
+  min-width: 0;
+  border-right: none;
+}
+
+.side-panel.collapsed .bracket-panel {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.side-panel-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 5;
+}
+.side-panel-resize:hover,
+.side-panel-resize.dragging {
+  background: rgba(139,115,85,0.2);
+}
+.side-panel.collapsed .side-panel-resize { display: none; }
+
+/* Disable transition during drag resize */
+.side-panel.resizing {
+  transition: none;
+}
+
+.side-panel-toggle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 24px;
+  background: #eae6df;
+  border: none;
+  border-right: 1px solid #d8d3cb;
+  border-radius: 0 !important;
+  cursor: pointer;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0 !important;
+  z-index: 10;
+  transition: left 0.2s ease;
+  color: #9e9486;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  white-space: nowrap;
+}
+
+.side-panel-toggle:hover { background: #e0dbd3; color: #6b5d4f; }
+
+.side-panel-toggle .toggle-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.side-panel-toggle .toggle-label {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: inherit;
+}
+
+.side-panel-toggle .toggle-arrow {
+  font-size: 7px;
+  line-height: 1;
+  color: inherit;
+}
+
+.fmt-label {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 10px;
   color: #998e80;
@@ -669,14 +914,14 @@ button.active {
   letter-spacing: 0.5px;
 }
 
-.format-bar .fmt-row {
+.fmt-row {
   display: flex;
-  flex-wrap: wrap;
   gap: 3px;
   align-items: center;
+  flex-wrap: nowrap;
 }
 
-.format-bar .fmt-sep {
+.fmt-sep {
   width: 1px;
   height: 20px;
   background: #ddd;
@@ -685,23 +930,23 @@ button.active {
 
 .fmt-btn {
   width: 28px;
-  height: 26px;
-  padding: 0;
-  display: flex;
+  height: 28px;
+  padding: 0 !important;
+  display: flex !important;
   align-items: center;
   justify-content: center;
   font-size: 13px;
   font-family: 'Times New Roman', Georgia, serif;
-  border: 1px solid #d4cfc7;
-  border-radius: 3px;
-  background: #fff;
+  border: none !important;
+  border-radius: 4px !important;
+  background: none;
   cursor: pointer;
   line-height: 1;
-  color: #4a4540;
+  color: #444;
 }
 
-.fmt-btn:hover { background: #f7f2eb; }
-.fmt-btn.on { background: #f0ebe3; border-color: #8b7355; color: #6b5740; }
+.fmt-btn:hover { background: #e8e5e0; }
+.fmt-btn.on { background: #d3e3fd; color: #1a73e8; }
 
 .fmt-swatch {
   width: 18px;
@@ -1160,91 +1405,163 @@ button.active {
 </div>
 </noscript>
 
-<header>
+<div class="title-bar">
   <h1><span>derivation</span> <span class="sr-only">— Free Online Syntax Tree Generator for Linguistics</span></h1>
-  <div class="toolbar-group">
-    <button id="btn-add-root" onclick="app.addRootNode()" title="Add Root">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="4" r="3"/><line x1="7" y1="7" x2="7" y2="13"/></svg>
-    </button>
-    <button id="btn-add-child" onclick="app.addChildToSelected()" disabled title="Add Child">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="7" y1="0" x2="7" y2="8"/><line x1="4" y1="5" x2="7" y2="8"/><line x1="10" y1="5" x2="7" y2="8"/><line x1="3" y1="11" x2="7" y2="8"/><line x1="11" y1="11" x2="7" y2="8"/></svg>
-    </button>
-    <button id="btn-add-triangle" onclick="app.addTriangleChild()" disabled title="Add Triangle">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><polygon points="7,1 1,13 13,13"/></svg>
-    </button>
-    <button id="btn-delete" class="danger" onclick="app.deleteSelected()" disabled title="Delete">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
-    </button>
-  </div>
-  <div class="toolbar-group separator">
-    <button id="btn-arrow" onclick="app.toggleArrowMode()" title="Add Arrow">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="2" y1="12" x2="11" y2="3"/><polyline points="6,2 12,2 12,8"/></svg>
-    </button>
-    <button id="btn-delete-arrow" class="danger" onclick="app.deleteSelectedArrow()" disabled style="display:none" title="Delete Arrow">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
-    </button>
-  </div>
-  <div class="toolbar-group separator">
-    <button onclick="app.undo()" id="btn-undo" disabled title="Undo">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12,12 L12,6 C12,2.5 4,2.5 4,6 L4,12"/><polyline points="2,10 4,12 6,10"/></svg>
-    </button>
-    <button onclick="app.redo()" id="btn-redo" disabled title="Redo">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4,12 L4,6 C4,2.5 12,2.5 12,6 L12,12"/><polyline points="10,10 12,12 14,10"/></svg>
-    </button>
-  </div>
-  <div class="toolbar-group separator toolbar-dropdown-wrapper">
-    <button onclick="app.toggleDropdown('file-dropdown')" title="File">
-      File <span class="dropdown-caret">▾</span>
-    </button>
-    <div class="toolbar-dropdown" id="file-dropdown" style="display:none">
-      <button onclick="app.saveJson(); app.closeDropdowns()">
-        <span>Save Project</span><span class="dropdown-hint">Ctrl+S</span>
-      </button>
-      <button onclick="app.loadJson(); app.closeDropdowns()">
-        <span>Open Project</span>
-      </button>
-      <div class="dropdown-divider"></div>
-      <button onclick="app.shareLink(); app.closeDropdowns()">
-        <span>Copy Share Link</span>
-      </button>
-      <div class="dropdown-divider"></div>
-      <button onclick="app.exportPng(); app.closeDropdowns()">
-        <span>Export PNG</span><span class="dropdown-hint">Ctrl+E</span>
-      </button>
-      <button onclick="app.exportSvg(); app.closeDropdowns()">
-        <span>Export SVG</span>
-      </button>
-      <button onclick="app.exportPdf(); app.closeDropdowns()">
-        <span>Export PDF</span>
-      </button>
-    </div>
-  </div>
-  <div class="toolbar-group separator toolbar-dropdown-wrapper">
-    <button onclick="app.toggleDropdown('view-dropdown')" title="View">
-      View <span class="dropdown-caret">▾</span>
-    </button>
-    <div class="toolbar-dropdown" id="view-dropdown" style="display:none">
-      <div class="dropdown-row">
-        <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:13px;color:#333;padding:0;" title="Align all terminal nodes to the same depth">
-          <input type="checkbox" id="align-bottom-cb" onchange="app.toggleAlignBottom(this.checked)" style="cursor:pointer;">
-          <span>Align bottom</span>
-        </label>
-      </div>
-      <div class="dropdown-divider"></div>
-      <div class="dropdown-row">
-        <span class="dropdown-label">Font</span>
-        <select id="font-family-select" onchange="app.changeFont(this.value)"></select>
-      </div>
-      <div class="dropdown-row">
-        <span class="dropdown-label">Size</span>
-        <select id="font-size-select" onchange="app.changeFontSize(Number(this.value))"></select>
+  <div class="menu-bar">
+    <div class="tb-dropdown-wrap">
+      <button onclick="app.toggleDropdown('file-dropdown')">File</button>
+      <div class="toolbar-dropdown" id="file-dropdown" style="display:none">
+        <button onclick="app.saveJson(); app.closeDropdowns()">
+          <span>Save Project</span><span class="dropdown-hint">Ctrl+S</span>
+        </button>
+        <button onclick="app.loadJson(); app.closeDropdowns()">
+          <span>Open Project</span>
+        </button>
+        <div class="dropdown-divider"></div>
+        <button onclick="app.shareLink(); app.closeDropdowns()">
+          <span>Copy Share Link</span>
+        </button>
+        <div class="dropdown-divider"></div>
+        <button onclick="app.exportPng(); app.closeDropdowns()">
+          <span>Export PNG</span><span class="dropdown-hint">Ctrl+E</span>
+        </button>
+        <button onclick="app.exportSvg(); app.closeDropdowns()">
+          <span>Export SVG</span>
+        </button>
+        <button onclick="app.exportPdf(); app.closeDropdowns()">
+          <span>Export PDF</span>
+        </button>
       </div>
     </div>
   </div>
+  <span class="title-spacer"></span>
+  <a href="docs.html" target="_blank" class="title-bar-link">Docs</a>
+  <button onclick="document.getElementById('feedback-overlay').style.display='flex'" class="title-bar-btn">Feedback</button>
+  <button onclick="document.getElementById('donate-overlay').style.display='flex'" class="title-bar-btn">Support</button>
+</div>
+
+<header>
+  <!-- Undo / Redo -->
+  <div class="tb-group">
+    <button class="tb-btn" onclick="app.undo()" id="btn-undo" disabled title="Undo (Ctrl+Z)">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12,12 L12,6 C12,2.5 4,2.5 4,6 L4,12"/><polyline points="2,10 4,12 6,10"/></svg>
+    </button>
+    <button class="tb-btn" onclick="app.redo()" id="btn-redo" disabled title="Redo (Ctrl+Y)">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4,12 L4,6 C4,2.5 12,2.5 12,6 L12,12"/><polyline points="10,10 12,12 14,10"/></svg>
+    </button>
+  </div>
+
+  <span class="tb-sep"></span>
+
+  <!-- Font family & size -->
+  <select id="font-family-select" class="tb-select" onchange="app.changeFont(this.value)" title="Font" style="width:130px"></select>
+  <select id="font-size-select" class="tb-select" onchange="app.changeFontSize(Number(this.value))" title="Font size" style="width:52px"></select>
+
+  <span class="tb-sep"></span>
+
+  <!-- Node operations -->
+  <div class="tb-group">
+    <button class="tb-btn" id="btn-add-root" onclick="app.addRootNode()" title="Add Root">
+      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="4" r="3"/><line x1="7" y1="7" x2="7" y2="13"/></svg>
+    </button>
+    <button class="tb-btn" id="btn-add-child" onclick="app.addChildToSelected()" disabled title="Add Child">
+      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="7" y1="0" x2="7" y2="8"/><line x1="4" y1="5" x2="7" y2="8"/><line x1="10" y1="5" x2="7" y2="8"/><line x1="3" y1="11" x2="7" y2="8"/><line x1="11" y1="11" x2="7" y2="8"/></svg>
+    </button>
+    <button class="tb-btn" id="btn-add-triangle" onclick="app.addTriangleChild()" disabled title="Add Triangle">
+      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="7,1 1,13 13,13"/></svg>
+    </button>
+    <button class="tb-btn danger" id="btn-delete" onclick="app.deleteSelected()" disabled title="Delete">
+      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+    </button>
+  </div>
+
+  <span class="tb-sep"></span>
+
+  <!-- Arrow -->
+  <div class="tb-group">
+    <button class="tb-btn" id="btn-arrow" onclick="app.toggleArrowMode()" title="Add Arrow">
+      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="12" x2="11" y2="3"/><polyline points="6,2 12,2 12,8"/></svg>
+    </button>
+    <button class="tb-btn danger" id="btn-delete-arrow" onclick="app.deleteSelectedArrow()" disabled style="display:none" title="Delete Arrow">
+      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+    </button>
+  </div>
+
+  <span class="tb-sep"></span>
+
+  <!-- Align bottom toggle -->
+  <button class="tb-btn" id="btn-align-bottom" onclick="app.toggleAlignBottom(!app.alignBottom)" title="Align bottom">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="14" x2="14" y2="14"/><line x1="4" y1="3" x2="4" y2="11"/><line x1="8" y1="6" x2="8" y2="11"/><line x1="12" y1="1" x2="12" y2="11"/></svg>
+  </button>
+
+  <span class="tb-sep"></span>
+
+  <!-- Text formatting (contextual) -->
+  <div class="toolbar-format-group" id="format-bar" style="display:none">
+    <div class="fmt-row">
+      <button class="fmt-btn" id="fmt-bold" onmousedown="event.preventDefault()" onclick="app.execFmt('bold')" title="Bold (Ctrl+B)"><b>B</b></button>
+      <button class="fmt-btn" id="fmt-italic" onmousedown="event.preventDefault()" onclick="app.execFmt('italic')" title="Italic (Ctrl+I)"><i>I</i></button>
+      <button class="fmt-btn" id="fmt-underline" onmousedown="event.preventDefault()" onclick="app.execFmt('underline')" title="Underline (Ctrl+U)"><u>U</u></button>
+      <button class="fmt-btn" id="fmt-strike" onmousedown="event.preventDefault()" onclick="app.execFmt('strikeThrough')" title="Strikethrough"><s>S</s></button>
+      <button class="fmt-btn" id="fmt-sub" onmousedown="event.preventDefault()" onclick="app.execFmt('subscript')" title="Subscript" style="font-size:13px;position:relative">X<span style="font-size:8px;position:relative;top:4px">2</span></button>
+      <button class="fmt-btn" id="fmt-sup" onmousedown="event.preventDefault()" onclick="app.execFmt('superscript')" title="Superscript" style="font-size:13px;position:relative">X<span style="font-size:8px;position:relative;top:-5px">2</span></button>
+      <button class="fmt-btn" id="fmt-smallcaps" onmousedown="event.preventDefault()" onclick="app.execFmt('smallcaps')" title="Small Caps" style="font-size:10px;letter-spacing:0.5px;font-variant:small-caps">Sc</button>
+    </div>
+    <span class="tb-sep"></span>
+    <div id="color-swatches" class="fmt-row"></div>
+  </div>
+
+  <!-- Arrow formatting (contextual) -->
+  <div class="toolbar-format-group" id="arrow-format-bar" style="display:none">
+    <div class="fmt-row">
+      <button class="fmt-btn" id="afmt-curve" onclick="app.setArrowShape('curve')" title="Curved" style="font-size:15px">&#8978;</button>
+      <button class="fmt-btn" id="afmt-straight" onclick="app.setArrowShape('straight')" title="Straight" style="font-size:13px">&#8725;</button>
+      <button class="fmt-btn" id="afmt-elbow" onclick="app.setArrowShape('elbow')" title="Elbow" style="font-size:13px">&#9495;</button>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="fmt-row">
+      <button class="fmt-btn" id="afmt-solid" onclick="app.setArrowStyle('solid')" title="Solid">&#8212;</button>
+      <button class="fmt-btn" id="afmt-dash" onclick="app.setArrowStyle('dash')" title="Dashed">- -</button>
+      <button class="fmt-btn" id="afmt-dot" onclick="app.setArrowStyle('dot')" title="Dotted">&middot;&middot;&middot;</button>
+    </div>
+    <span class="tb-sep"></span>
+    <div id="arrow-color-swatches" class="fmt-row"></div>
+  </div>
+
+  <!-- Branch formatting (contextual) -->
+  <div class="toolbar-format-group" id="branch-format-bar" style="display:none">
+    <div class="fmt-row">
+      <button class="fmt-btn branch-style-btn on" id="bfmt-solid" onclick="app.setBranchStyle(null)" title="Solid">
+        <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+      <button class="fmt-btn branch-style-btn" id="bfmt-dashed" onclick="app.setBranchStyle('dashed')" title="Dashed">
+        <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/></svg>
+      </button>
+      <button class="fmt-btn branch-style-btn" id="bfmt-dotted" onclick="app.setBranchStyle('dotted')" title="Dotted">
+        <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="1.5" stroke-dasharray="1.5 2"/></svg>
+      </button>
+    </div>
+    <span class="tb-sep"></span>
+    <div id="branch-color-swatches-bar" class="fmt-row"></div>
+  </div>
+
+  <!-- Node fill (contextual) -->
+  <div class="toolbar-format-group" id="node-fill-bar" style="display:none">
+    <div class="fmt-row">
+      <button class="fmt-btn" id="nfmt-no-fill" onclick="app.setNodeFillColor(null)" title="No fill" style="font-size:11px;color:#999;text-decoration:line-through">&#9632;</button>
+      <div id="node-fill-swatches" class="fmt-row"></div>
+    </div>
+  </div>
+
+  <!-- Node border (contextual) -->
+  <div class="toolbar-format-group" id="node-border-bar" style="display:none">
+    <div class="fmt-row">
+      <button class="fmt-btn" id="nfmt-no-border" onclick="app.setNodeBorderColor(null)" title="No border" style="font-size:11px;color:#999;text-decoration:line-through">&#9634;</button>
+      <div id="node-border-swatches" class="fmt-row"></div>
+    </div>
+  </div>
+
   <div class="toolbar-spacer"></div>
-  <a href="docs.html" target="_blank" class="toolbar-link" title="Documentation">Docs</a>
-  <button onclick="document.getElementById('feedback-overlay').style.display='flex'" class="toolbar-text-btn">Feedback</button>
-  <button onclick="document.getElementById('donate-overlay').style.display='flex'" class="toolbar-text-btn">Support</button>
 </header>
 
 <div class="arrow-mode-banner" id="arrow-banner" style="display:none">
@@ -1253,69 +1570,42 @@ button.active {
 </div>
 
 <div class="main-area">
-  <div class="side-panel" id="side-panel">
-    <div class="format-bar" id="format-bar" style="display:none">
-      <span class="fmt-label">Format</span>
-      <div class="fmt-row">
-        <button class="fmt-btn" id="fmt-bold" onmousedown="event.preventDefault()" onclick="app.execFmt('bold')" title="Bold"><b>B</b></button>
-        <button class="fmt-btn" id="fmt-italic" onmousedown="event.preventDefault()" onclick="app.execFmt('italic')" title="Italic"><i>I</i></button>
-        <button class="fmt-btn" id="fmt-underline" onmousedown="event.preventDefault()" onclick="app.execFmt('underline')" title="Underline"><u>U</u></button>
-        <button class="fmt-btn" id="fmt-sub" onmousedown="event.preventDefault()" onclick="app.execFmt('subscript')" title="Subscript" style="font-size:13px;position:relative">X<span style="font-size:8px;position:relative;top:4px">2</span></button>
-        <button class="fmt-btn" id="fmt-sup" onmousedown="event.preventDefault()" onclick="app.execFmt('superscript')" title="Superscript" style="font-size:13px;position:relative">X<span style="font-size:8px;position:relative;top:-5px">2</span></button>
-        <button class="fmt-btn" id="fmt-strike" onmousedown="event.preventDefault()" onclick="app.execFmt('strikeThrough')" title="Strikethrough" style="font-size:13px"><s>S</s></button>
-        <button class="fmt-btn" id="fmt-smallcaps" onmousedown="event.preventDefault()" onclick="app.execFmt('smallcaps')" title="Small Caps" style="font-size:10px;letter-spacing:0.5px;font-variant:small-caps">Sc</button>
+  <button class="side-panel-toggle" id="side-panel-toggle" onclick="app.toggleSidePanel()" title="Toggle bracket panel">
+    <span class="toggle-inner">
+      <span class="toggle-arrow">▶</span>
+      <span class="toggle-label">Brackets</span>
+    </span>
+  </button>
+  <div class="side-panel collapsed" id="side-panel">
+    <div class="side-panel-resize" id="side-panel-resize"></div>
+    <div class="bracket-panel" id="bracket-panel">
+      <div class="bracket-header">
+        <label>Bracket Notation</label>
       </div>
-      <span class="fmt-label" style="margin-top:4px">Color</span>
-      <div id="color-swatches" class="fmt-row"></div>
-    </div>
-
-    <div class="format-bar" id="arrow-format-bar" style="display:none">
-      <span class="fmt-label">Shape</span>
-      <div class="fmt-row">
-        <button class="fmt-btn" id="afmt-curve" onclick="app.setArrowShape('curve')" title="Curved" style="font-size:15px">&#8978;</button>
-        <button class="fmt-btn" id="afmt-straight" onclick="app.setArrowShape('straight')" title="Straight" style="font-size:13px">&#8725;</button>
-        <button class="fmt-btn" id="afmt-elbow" onclick="app.setArrowShape('elbow')" title="Elbow" style="font-size:13px">&#9495;</button>
-      </div>
-      <span class="fmt-label" style="margin-top:4px">Style</span>
-      <div class="fmt-row">
-        <button class="fmt-btn" id="afmt-solid" onclick="app.setArrowStyle('solid')" title="Solid">&#8212;</button>
-        <button class="fmt-btn" id="afmt-dash" onclick="app.setArrowStyle('dash')" title="Dashed">- -</button>
-        <button class="fmt-btn" id="afmt-dot" onclick="app.setArrowStyle('dot')" title="Dotted">&middot;&middot;&middot;</button>
-      </div>
-      <span class="fmt-label" style="margin-top:4px">Color</span>
-      <div id="arrow-color-swatches" class="fmt-row"></div>
-    </div>
-
-    <div class="format-bar" id="branch-format-bar" style="display:none">
-      <span class="fmt-label">Branch Style</span>
-      <div class="fmt-row">
-        <button class="fmt-btn branch-style-btn on" id="bfmt-solid" onclick="app.setBranchStyle(null)" title="Solid">
-          <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="1.5"/></svg>
-        </button>
-        <button class="fmt-btn branch-style-btn" id="bfmt-dashed" onclick="app.setBranchStyle('dashed')" title="Dashed">
-          <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/></svg>
-        </button>
-        <button class="fmt-btn branch-style-btn" id="bfmt-dotted" onclick="app.setBranchStyle('dotted')" title="Dotted">
-          <svg width="20" height="8"><line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" stroke-width="1.5" stroke-dasharray="1.5 2"/></svg>
-        </button>
-      </div>
-      <span class="fmt-label">Branch Color</span>
-      <div id="branch-color-swatches-bar" class="fmt-row"></div>
-    </div>
-
-    <div class="format-bar" id="node-fill-bar" style="display:none">
-      <span class="fmt-label">Fill</span>
-      <div class="fmt-row">
-        <button class="fmt-btn" id="nfmt-no-fill" onclick="app.setNodeFillColor(null)" title="No fill" style="font-size:11px;color:#999;text-decoration:line-through">&#9632;</button>
-        <div id="node-fill-swatches" class="fmt-row"></div>
-      </div>
-    </div>
-
-    <div class="format-bar" id="node-border-bar" style="display:none">
-      <span class="fmt-label">Border</span>
-      <div class="fmt-row">
-        <button class="fmt-btn" id="nfmt-no-border" onclick="app.setNodeBorderColor(null)" title="No border" style="font-size:11px;color:#999;text-decoration:line-through">&#9634;</button>
-        <div id="node-border-swatches" class="fmt-row"></div>
+      <div class="bracket-body">
+        <div class="bracket-editor">
+          <div class="bracket-backdrop" id="bracket-backdrop"></div>
+          <textarea id="bracket-input" placeholder="[S [NP [Det the] [N cat]] [VP [V sat]]]" spellcheck="false"></textarea>
+        </div>
+        <div class="bracket-actions">
+          <button onclick="app.parseBrackets()">Parse</button>
+          <button class="bracket-help-btn" onclick="app.toggleBracketHelp()" title="Formatting help">?</button>
+        </div>
+        <div class="bracket-help" id="bracket-help" style="display:none">
+          <table class="bracket-help-table">
+            <tr><td><code>\textbf{text}</code></td><td>Bold</td></tr>
+            <tr><td><code>\textit{text}</code></td><td>Italic</td></tr>
+            <tr><td><code>^{text}</code></td><td>Superscript</td></tr>
+            <tr><td><code>_{text}</code></td><td>Subscript</td></tr>
+            <tr><td><code>\textsc{text}</code></td><td>Small caps</td></tr>
+            <tr><td><code>\underline{text}</code></td><td>Underline</td></tr>
+            <tr><td><code>\sout{text}</code></td><td>Strikethrough</td></tr>
+            <tr><td><code>\\</code></td><td>New line</td></tr>
+            <tr><td><kbd>Tab</kbd></td><td>Indent</td></tr>
+            <tr><td><kbd>Shift+Tab</kbd></td><td>Outdent</td></tr>
+            <tr><td><kbd>Ctrl+Enter</kbd></td><td>Parse</td></tr>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -1331,20 +1621,6 @@ button.active {
     <button onclick="app.zoomOut()" title="Zoom out (Ctrl+−)">−</button>
     <span id="zoom-level" title="Double-click to reset">100%</span>
     <button onclick="app.zoomIn()" title="Zoom in (Ctrl++)">+</button>
-  </div>
-</div>
-
-<div class="bracket-panel" id="bracket-panel">
-  <div class="bracket-header" onclick="document.getElementById('bracket-panel').classList.toggle('open')">
-    <label><span class="bracket-toggle">▲</span> Bracket Notation</label>
-    <span class="bracket-hint">\textbf{} \textit{} ^{} _{} \textsc{} \\ = newline</span>
-  </div>
-  <div class="bracket-body">
-    <textarea id="bracket-input" placeholder="[S [NP [Det the] [N cat]] [VP [V sat]]]" spellcheck="false" rows="8"></textarea>
-    <div class="bracket-actions">
-      <button onclick="app.parseBrackets()">Parse</button>
-      <span class="bracket-ref">\underline{}  \sout{}</span>
-    </div>
   </div>
 </div>
 

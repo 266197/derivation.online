@@ -12,7 +12,7 @@ import {
   splitRunsIntoLines, runsToHTML, escHtml, htmlToRuns,
   TreeNode, parseBracketNotation,
   measureNodeSize,
-  layoutTree,
+  layoutTree, applyOffsets,
   createSvgRunSpans,
   getAnchorPos, getAnchorDir,
 } from './tree.js';
@@ -206,20 +206,20 @@ class App {
   }
 
   changeFont(value) {
+    if (this.root) this.saveState();
     setFontFamily(value);
     this._applyFontCSS();
     if (this.root) {
-      this.saveState();
       this.render();
       this._autoSave();
     }
   }
 
   changeFontSize(value) {
+    if (this.root) this.saveState();
     setFontSize(value);
     this._applyFontCSS();
     if (this.root) {
-      this.saveState();
       this.render();
       this._autoSave();
     }
@@ -567,66 +567,109 @@ class App {
     return find(this.root);
   }
 
-  saveState() {
-    this.undoStack.push({
+  _snapshot() {
+    return {
       tree: this.root ? this.root.toJSON() : null,
       arrows: JSON.parse(JSON.stringify(this.arrows)),
-      selectedId: this.selectedId,
-      selectedIds: [...this.selectedIds],
-      selectedBranchId: this.selectedBranchId,
-      selectedBranchIds: [...this.selectedBranchIds],
-      selectedArrowIdx: this.selectedArrowIdx,
-    });
-    this.redoStack = [];
-    if (this.undoStack.length > 50) this.undoStack.shift();
+      fontFamily: getFontFamily(),
+      fontSize: getFontSize(),
+      alignBottom: this.alignBottom,
+    };
   }
 
-  _restoreSelections(state) {
-    this.selectedId = state.selectedId || null;
-    this.selectedIds = new Set(state.selectedIds || []);
-    this.selectedBranchId = state.selectedBranchId || null;
-    this.selectedBranchIds = new Set(state.selectedBranchIds || []);
-    this.selectedArrowIdx = state.selectedArrowIdx != null ? state.selectedArrowIdx : null;
+  saveState() {
+    // Commit any ongoing inline edit so the snapshot reflects the latest text
+    const snap = this._snapshot();
+    // Deduplicate: skip if identical to top of undo stack
+    if (this.undoStack.length > 0) {
+      const top = this.undoStack[this.undoStack.length - 1];
+      if (JSON.stringify(top) === JSON.stringify(snap)) return;
+    }
+    this.undoStack.push(snap);
+    this.redoStack = [];
+    if (this.undoStack.length > 200) this.undoStack.shift();
+  }
+
+  _restoreSnapshot(state) {
+    this.root = state.tree ? TreeNode.fromJSON(state.tree) : null;
+    this.arrows = state.arrows || [];
+    if (state.fontFamily && state.fontFamily !== getFontFamily()) {
+      setFontFamily(state.fontFamily);
+      document.getElementById('font-family').value = state.fontFamily;
+    }
+    if (state.fontSize != null && state.fontSize !== getFontSize()) {
+      setFontSize(state.fontSize);
+      document.getElementById('font-size').value = state.fontSize;
+    }
+    if (state.alignBottom != null) {
+      this.alignBottom = state.alignBottom;
+      const cb = document.getElementById('align-bottom-cb');
+      if (cb) cb.checked = this.alignBottom;
+    }
+    this._applyFontCSS();
+    // Clear all selections
+    this.selectedId = null;
+    this.selectedIds = new Set();
+    this.selectedBranchId = null;
+    this.selectedBranchIds = new Set();
+    this.selectedArrowIdx = null;
     this._nodeFormatTarget = null;
     this.editingNode = null;
-    document.getElementById('branch-format-bar').style.display = this.selectedBranchId ? 'flex' : 'none';
-    document.getElementById('node-fill-bar').style.display = this.selectedId ? 'flex' : 'none';
-    document.getElementById('node-border-bar').style.display = this.selectedId ? 'flex' : 'none';
+    document.getElementById('branch-format-bar').style.display = 'none';
+    document.getElementById('node-fill-bar').style.display = 'none';
+    document.getElementById('node-border-bar').style.display = 'none';
+  }
+
+  // Silently commit any open editor without creating an undo entry
+  _commitEditSilent() {
+    if (this.editingArrowIdx != null) {
+      // Commit arrow edit without undo
+      const div = document.querySelector('.inline-edit');
+      if (div && this.editingArrowIdx != null) {
+        const arrow = this.arrows[this.editingArrowIdx];
+        if (arrow) {
+          const newRuns = htmlToRuns(div);
+          const newLabel = newRuns.length > 0 && runsToPlainText(newRuns).trim() ? newRuns : [];
+          arrow.labelRuns = newLabel;
+          delete arrow.label;
+        }
+        div.remove();
+        this.editingArrowIdx = null;
+        this.hideFormatBar();
+      }
+      return;
+    }
+    const div = document.querySelector('.inline-edit');
+    if (!div || !this.editingNode) return;
+    const node = this.findNode(this.editingNode);
+    if (node) {
+      const newRuns = htmlToRuns(div);
+      if (newRuns.length > 0 && runsToPlainText(newRuns).trim()) {
+        node.runs = newRuns;
+      }
+    }
+    this.editingNode = null;
+    div.remove();
+    this.hideFormatBar();
   }
 
   undo() {
     if (this.undoStack.length === 0) return;
-    this.redoStack.push({
-      tree: this.root ? this.root.toJSON() : null,
-      arrows: JSON.parse(JSON.stringify(this.arrows)),
-      selectedId: this.selectedId,
-      selectedIds: [...this.selectedIds],
-      selectedBranchId: this.selectedBranchId,
-      selectedBranchIds: [...this.selectedBranchIds],
-      selectedArrowIdx: this.selectedArrowIdx,
-    });
+    // Commit open editor as part of the current state (no new undo entry)
+    this._commitEditSilent();
+    // Save current state to redo stack
+    this.redoStack.push(this._snapshot());
     const state = this.undoStack.pop();
-    this.root = state.tree ? TreeNode.fromJSON(state.tree) : null;
-    this.arrows = state.arrows || [];
-    this._restoreSelections(state);
+    this._restoreSnapshot(state);
     this.render();
   }
 
   redo() {
     if (this.redoStack.length === 0) return;
-    this.undoStack.push({
-      tree: this.root ? this.root.toJSON() : null,
-      arrows: JSON.parse(JSON.stringify(this.arrows)),
-      selectedId: this.selectedId,
-      selectedIds: [...this.selectedIds],
-      selectedBranchId: this.selectedBranchId,
-      selectedBranchIds: [...this.selectedBranchIds],
-      selectedArrowIdx: this.selectedArrowIdx,
-    });
+    this._commitEditSilent();
+    this.undoStack.push(this._snapshot());
     const state = this.redoStack.pop();
-    this.root = state.tree ? TreeNode.fromJSON(state.tree) : null;
-    this.arrows = state.arrows || [];
-    this._restoreSelections(state);
+    this._restoreSnapshot(state);
     this.render();
   }
 
@@ -991,6 +1034,7 @@ class App {
   }
 
   toggleAlignBottom(on) {
+    if (this.root) this.saveState();
     this.alignBottom = on;
     if (this.root) this.render();
   }
@@ -1941,6 +1985,15 @@ class App {
     document.getElementById('btn-redo').disabled = this.redoStack.length === 0;
   }
 
+  _renderDrag() {
+    if (this._dragRafPending) return;
+    this._dragRafPending = true;
+    requestAnimationFrame(() => {
+      this._dragRafPending = false;
+      this.render();
+    });
+  }
+
   render() {
     this.svg.innerHTML = '';
     this.emptyState.style.display = this.root ? 'none' : 'block';
@@ -1953,6 +2006,7 @@ class App {
     }
 
     layoutTree(this.root, this.alignBottom);
+    applyOffsets(this.root);
     if (document.activeElement !== this.bracketInput) {
       this.bracketInput.value = this.root.toLabeledBrackets();
     }
@@ -2175,20 +2229,60 @@ class App {
         g.appendChild(dot);
       }
 
-      g.addEventListener('click', (e) => {
+      g.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return; // left button only
         e.stopPropagation();
         if (this.arrowMode) {
           this.handleArrowClick(n.id);
-        } else if (e.metaKey || e.ctrlKey) {
-          // Clear arrow selection without wiping node selections
-          this.selectedArrowIdx = null;
-          this.updateArrowFormatBar();
-          document.getElementById('btn-delete-arrow').style.display = 'none';
-          this.toggleSelect(n.id);
-        } else {
-          this.selectArrow(null);
-          this.select(n.id);
+          return;
         }
+        const startX = e.clientX, startY = e.clientY;
+        let isDrag = false;
+        let dragSaved = false;
+
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX, dy = ev.clientY - startY;
+          if (!isDrag && (dx * dx + dy * dy) < 25) return; // 5px threshold
+          if (!isDrag) {
+            isDrag = true;
+            this.select(n.id);
+          }
+          if (!dragSaved) { this.saveState(); dragSaved = true; }
+          // Convert pixel delta to SVG units (1:1 since no zoom)
+          n.offsetX += ev.movementX;
+          n.offsetY += ev.movementY;
+          this._renderDrag();
+        };
+
+        const onClick = (ev) => {
+          // Prevent the synthetic click after drag
+          if (isDrag) { ev.stopPropagation(); ev.preventDefault(); }
+        };
+
+        const onUp = () => {
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onUp);
+          if (isDrag) {
+            // Block the click event that follows pointerup
+            g.addEventListener('click', onClick, { once: true, capture: true });
+            this.render();
+            this._autoSave();
+          } else {
+            // It was a click, not a drag
+            if (e.metaKey || e.ctrlKey) {
+              this.selectedArrowIdx = null;
+              this.updateArrowFormatBar();
+              document.getElementById('btn-delete-arrow').style.display = 'none';
+              this.toggleSelect(n.id);
+            } else {
+              this.selectArrow(null);
+              this.select(n.id);
+            }
+          }
+        };
+
+        document.addEventListener('pointermove', onMove);
+        document.addEventListener('pointerup', onUp);
       });
 
       g.addEventListener('dblclick', (e) => {
@@ -2246,6 +2340,15 @@ class App {
           this.render();
         }});
       }
+    }
+
+    if (node && (node.offsetX || node.offsetY)) {
+      items.push({ label: 'Reset Position', action: () => {
+        this.saveState();
+        node.offsetX = 0;
+        node.offsetY = 0;
+        this.render();
+      }});
     }
 
     items.push({ label: 'Delete', action: () => { this.selectedId = id; this.deleteSelected(); } });
@@ -2378,7 +2481,7 @@ class App {
     const data = this._getProjectData();
     const str = JSON.stringify(data, null, 2);
     const blob = new Blob([str], { type: 'application/json' });
-    saveAs(blob, 'merge-tree.json');
+    saveAs(blob, 'derivation-tree.json');
     this.toast('Project saved');
   }
 
@@ -2495,7 +2598,7 @@ class App {
       ctx.drawImage(img, 0, 0, cropW * scale, cropH * scale);
       URL.revokeObjectURL(url);
       canvas.toBlob(pngBlob => {
-        saveAs(pngBlob, 'merge-tree.png');
+        saveAs(pngBlob, 'derivation-tree.png');
         this.toast('Exported to PNG');
       });
     };
@@ -2562,20 +2665,33 @@ class App {
       .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.92)}px; fill: #333; text-anchor: middle; }
     `;
 
-    // Reorder layers
-    svgEl.querySelectorAll('.node-group').forEach(ng => {
-      const rectOnly = ng.cloneNode(false);
+    // Reorder layers: rects (bottom) → fans → branches → labels → arrows (top)
+    // 1. Collect original node groups before we start moving things
+    const origNodeGroups = Array.from(svgEl.querySelectorAll('.node-group'));
+
+    // 2. Create rect-only background groups (no .node-group class so they won't be re-matched)
+    origNodeGroups.forEach(ng => {
       const rect = ng.querySelector('.node-rect');
-      if (rect) rectOnly.appendChild(rect.cloneNode(true));
-      svgEl.appendChild(rectOnly);
+      if (rect) {
+        const rectWrapper = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        rectWrapper.setAttribute('class', 'node-rect-bg');
+        rectWrapper.appendChild(rect.cloneNode(true));
+        svgEl.appendChild(rectWrapper);
+      }
     });
+
+    // 3. Move branch fans, branch groups
     svgEl.querySelectorAll('.branch-fan').forEach(el => svgEl.appendChild(el));
     svgEl.querySelectorAll('.branch-group').forEach(el => svgEl.appendChild(el));
-    svgEl.querySelectorAll('.node-group').forEach(ng => {
+
+    // 4. Move original node groups (without their rects) for labels
+    origNodeGroups.forEach(ng => {
       const rect = ng.querySelector('.node-rect');
       if (rect) rect.remove();
       svgEl.appendChild(ng);
     });
+
+    // 5. Move arrows on top
     svgEl.querySelectorAll('.arrow-group').forEach(el => svgEl.appendChild(el));
 
     svgEl.insertBefore(styleEl, svgEl.firstChild);
@@ -2602,7 +2718,7 @@ class App {
 
     const svgStr = '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svgEl);
     const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-    saveAs(blob, 'merge-tree.svg');
+    saveAs(blob, 'derivation-tree.svg');
     this.toast('Exported to SVG');
   }
 

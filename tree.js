@@ -447,6 +447,8 @@ class TreeNode {
     this.w = 0;
     this.h = 0;
     this.subtreeW = 0;
+    this.offsetX = 0;
+    this.offsetY = 0;
   }
 
   get label() { return runsToPlainText(this.runs); }
@@ -475,6 +477,8 @@ class TreeNode {
     if (this.borderColor) o.borderColor = this.borderColor;
     if (this.fillColor) o.fillColor = this.fillColor;
     if (this.triangleFillColor) o.triangleFillColor = this.triangleFillColor;
+    if (this.offsetX) o.offsetX = this.offsetX;
+    if (this.offsetY) o.offsetY = this.offsetY;
     return o;
   }
 
@@ -486,6 +490,8 @@ class TreeNode {
     n.borderColor = obj.borderColor || null;
     n.fillColor = obj.fillColor || null;
     n.triangleFillColor = obj.triangleFillColor || null;
+    n.offsetX = obj.offsetX || 0;
+    n.offsetY = obj.offsetY || 0;
     n.children = (obj.children || []).map(c => TreeNode.fromJSON(c, n));
     return n;
   }
@@ -646,6 +652,19 @@ function layoutTree(root, alignBottom) {
   }
 }
 
+// Apply manual offsets after layout — parent offsets propagate to children
+function applyOffsets(root) {
+  if (!root) return;
+  function walk(node, parentDx, parentDy) {
+    const dx = parentDx + node.offsetX;
+    const dy = parentDy + node.offsetY;
+    node.x += dx;
+    node.y += dy;
+    node.children.forEach(c => walk(c, dx, dy));
+  }
+  walk(root, 0, 0);
+}
+
 // --- SVG helpers ---
 
 function createSvgRunSpans(textEl, runs, cx, cy, nodeH) {
@@ -731,7 +750,7 @@ export {
   splitRunsIntoLines, runsToHTML, escHtml, htmlToRuns,
   TreeNode, parseBracketNotation,
   measureNodeSize, measureLineRuns, getLineHeight,
-  layoutTree,
+  layoutTree, applyOffsets,
   createSvgRunSpans,
   getAnchorPos, getAnchorDir,
 };

@@ -3061,7 +3061,15 @@ class App {
     panel.classList.toggle('collapsed');
     const collapsed = panel.classList.contains('collapsed');
     arrow.textContent = collapsed ? '▶' : '◀';
-    btn.style.left = collapsed ? '0px' : (this._sidePanelWidth || 220) + 'px';
+    if (!collapsed) {
+      // Restore saved width when expanding
+      const w = this._sidePanelWidth || 220;
+      panel.style.width = w + 'px';
+      panel.style.minWidth = w + 'px';
+      btn.style.left = w + 'px';
+    } else {
+      btn.style.left = '0px';
+    }
     // Re-render after transition so tree re-centers to new canvas width
     panel.addEventListener('transitionend', () => {
       if (this.root) this.render();

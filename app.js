@@ -298,6 +298,8 @@ class App {
     this.svg.querySelectorAll('.node-group.selected').forEach(g => g.classList.remove('selected'));
     this.svg.querySelectorAll('.arrow-group.selected').forEach(g => g.classList.remove('selected'));
     this.svg.querySelectorAll('.branch-group.selected').forEach(g => g.classList.remove('selected'));
+    this.svg.querySelectorAll('.arrow-drag-handle').forEach(el => el.remove());
+    this.svg.querySelectorAll('.curve-guide').forEach(el => el.remove());
   }
 
   selectBranch(childId) {
@@ -1004,7 +1006,7 @@ class App {
   renderArrows() {
     if (!this.root) return;
     this._pendingElbowHandles = null;
-    this._pendingCurveHandle = null;
+    this._pendingCurveHandles = null;
 
     const nodeMap = {};
     function collect(n) { nodeMap[n.id] = n; n.children.forEach(collect); }
@@ -1143,11 +1145,13 @@ class App {
       } else {
         const dist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
         const defaultArm = Math.max(30, Math.min(80, dist * 0.4));
-        const arm = arrow.curveArm != null ? arrow.curveArm : defaultArm;
-        const cp1x = p1.x + d1.dx * arm;
-        const cp1y = p1.y + d1.dy * arm;
-        const cp2x = p2.x + d2.dx * arm;
-        const cp2y = p2.y + d2.dy * arm;
+        // Asymmetric arms: each end has its own control point distance
+        const arm1 = arrow.curveArm1 != null ? arrow.curveArm1 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
+        const arm2 = arrow.curveArm2 != null ? arrow.curveArm2 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
+        const cp1x = p1.x + d1.dx * arm1;
+        const cp1y = p1.y + d1.dy * arm1;
+        const cp2x = p2.x + d2.dx * arm2;
+        const cp2y = p2.y + d2.dy * arm2;
         const tx = 3 * (p2.x - cp2x);
         const ty = 3 * (p2.y - cp2y);
         const tLen = Math.sqrt(tx * tx + ty * ty) || 1;
@@ -1157,14 +1161,17 @@ class App {
         const endY = tipY - uy * arrowSize * 0.8;
         pathD = `M ${p1.x} ${p1.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
 
-        // Bezier midpoint at t=0.5: 0.125*P0 + 0.375*CP1 + 0.375*CP2 + 0.125*P3
+        // Bezier midpoint for label positioning
         const midBx = 0.125 * p1.x + 0.375 * cp1x + 0.375 * cp2x + 0.125 * endX;
         const midBy = 0.125 * p1.y + 0.375 * cp1y + 0.375 * cp2y + 0.125 * endY;
         labelX = (p1.x + p2.x) / 2;
         labelY = midBy + 14;
 
         if (idx === this.selectedArrowIdx) {
-          this._pendingCurveHandle = { x: midBx, y: midBy, idx, p1, p2, d1, d2 };
+          this._pendingCurveHandles = [
+            { x: cp1x, y: cp1y, idx, which: 1, p1, p2, d1, d2 },
+            { x: cp2x, y: cp2y, idx, which: 2, p1, p2, d1, d2 },
+          ];
         }
       }
 
@@ -1241,10 +1248,11 @@ class App {
       }
       this._pendingElbowHandles = null;
     }
-    if (this._pendingCurveHandle) {
-      const h = this._pendingCurveHandle;
-      this._renderCurveHandle(h.x, h.y, h.idx, h.p1, h.p2, h.d1, h.d2);
-      this._pendingCurveHandle = null;
+    if (this._pendingCurveHandles) {
+      for (const h of this._pendingCurveHandles) {
+        this._renderCurveHandle(h.x, h.y, h.idx, h.which, h.p1, h.p2, h.d1, h.d2);
+      }
+      this._pendingCurveHandles = null;
     }
   }
 
@@ -1285,65 +1293,82 @@ class App {
     this.svg.appendChild(rect);
   }
 
-  _renderCurveHandle(cx, cy, arrowIdx, p1, p2, d1, d2) {
+  _renderCurveHandle(cx, cy, arrowIdx, which, p1, p2, d1, d2) {
+    // Draw a thin line from anchor to control point
+    const anchor = which === 1 ? p1 : p2;
+    const guide = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    guide.setAttribute('x1', anchor.x);
+    guide.setAttribute('y1', anchor.y);
+    guide.setAttribute('x2', cx);
+    guide.setAttribute('y2', cy);
+    guide.setAttribute('stroke', '#7c3aed');
+    guide.setAttribute('stroke-width', '1');
+    guide.setAttribute('stroke-dasharray', '3 2');
+    guide.setAttribute('pointer-events', 'none');
+    guide.setAttribute('class', 'curve-guide');
+    guide.dataset.curveWhich = which;
+    this.svg.appendChild(guide);
+
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', cx);
     circle.setAttribute('cy', cy);
     circle.setAttribute('r', 5);
     circle.setAttribute('class', 'arrow-drag-handle');
+    circle.dataset.curveWhich = which;
     circle.style.cursor = 'move';
 
     circle.addEventListener('mousedown', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      this._startCurveDrag(arrowIdx, p1, p2, d1, d2);
+      this._startCurveDrag(arrowIdx, which, p1, p2, d1, d2);
     });
 
     this.svg.appendChild(circle);
   }
 
-  _startCurveDrag(arrowIdx, p1, p2, d1, d2) {
+  _startCurveDrag(arrowIdx, which, p1, p2, d1, d2) {
     const arrow = this.arrows[arrowIdx];
     if (!arrow) return;
     this._draggingArrow = true;
     let saved = false;
 
     const svgPt = (e) => this.svgPoint(e);
+    const dist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+    const defaultArm = Math.max(30, Math.min(80, dist * 0.4));
 
     const arrowGroup = this.svg.querySelector(`.arrow-group[data-idx="${arrowIdx}"]`);
     const pathEl = arrowGroup ? arrowGroup.querySelector('.arrow-path') : null;
     const hitEl = arrowGroup ? arrowGroup.querySelector('path[stroke="transparent"]') : null;
-    const handleEls = this.svg.querySelectorAll('.arrow-drag-handle');
-    const curveHandle = handleEls.length > 0 ? handleEls[handleEls.length - 1] : null;
+    const handle1 = this.svg.querySelector('.arrow-drag-handle[data-curve-which="1"]');
+    const handle2 = this.svg.querySelector('.arrow-drag-handle[data-curve-which="2"]');
 
-    const lineMidX = (p1.x + p2.x) / 2;
-    const lineMidY = (p1.y + p2.y) / 2;
-    const initArm = arrow.curveArm != null ? arrow.curveArm : Math.max(30, Math.min(80, Math.sqrt((p2.x-p1.x)**2+(p2.y-p1.y)**2) * 0.4));
+    // The anchor point and direction for the handle being dragged
+    const anchor = which === 1 ? p1 : p2;
+    const dir = which === 1 ? d1 : d2;
 
     const onMove = (e) => {
       if (!saved) { this.saveState(); saved = true; }
       const pt = svgPt(e);
 
-      const offX = pt.x - lineMidX, offY = pt.y - lineMidY;
-      const dist = Math.sqrt(offX * offX + offY * offY);
-      const sumDx = d1.dx + d2.dx, sumDy = d1.dy + d2.dy;
-      const sumLen = Math.sqrt(sumDx * sumDx + sumDy * sumDy);
-      let arm;
-      if (sumLen > 0.01) {
-        const nDx = sumDx / sumLen, nDy = sumDy / sumLen;
-        const proj = (offX * nDx + offY * nDy) / (0.375 * sumLen);
-        arm = proj;
-      } else {
-        const sign = (offX * d1.dx + offY * d1.dy) >= 0 ? 1 : -1;
-        arm = sign * dist / 0.375;
-      }
-      arrow.curveArm = Math.abs(arm) < 5 ? (arm < 0 ? -5 : 5) : arm;
+      // Project mouse position onto the anchor's direction to get arm length
+      const offX = pt.x - anchor.x, offY = pt.y - anchor.y;
+      let arm = offX * dir.dx + offY * dir.dy;
+      if (Math.abs(arm) < 5) arm = arm < 0 ? -5 : 5;
 
-      arm = arrow.curveArm;
-      const cp1x = p1.x + d1.dx * arm;
-      const cp1y = p1.y + d1.dy * arm;
-      const cp2x = p2.x + d2.dx * arm;
-      const cp2y = p2.y + d2.dy * arm;
+      // Store independently
+      if (which === 1) {
+        arrow.curveArm1 = arm;
+      } else {
+        arrow.curveArm2 = arm;
+      }
+
+      // Recompute full curve with both arms
+      const a1 = arrow.curveArm1 != null ? arrow.curveArm1 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
+      const a2 = arrow.curveArm2 != null ? arrow.curveArm2 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
+      const cp1x = p1.x + d1.dx * a1;
+      const cp1y = p1.y + d1.dy * a1;
+      const cp2x = p2.x + d2.dx * a2;
+      const cp2y = p2.y + d2.dy * a2;
       const tx = 3 * (p2.x - cp2x);
       const ty = 3 * (p2.y - cp2y);
       const tLen = Math.sqrt(tx * tx + ty * ty) || 1;
@@ -1355,6 +1380,7 @@ class App {
       if (pathEl) pathEl.setAttribute('d', newD);
       if (hitEl) hitEl.setAttribute('d', newD);
 
+      // Update arrowhead
       const head = arrowGroup ? arrowGroup.querySelector('.arrow-head') : null;
       if (head) {
         const px = -uy, py = ux, sz = 7;
@@ -1362,18 +1388,19 @@ class App {
           `${p2.x},${p2.y} ${p2.x-ux*sz+px*sz*0.45},${p2.y-uy*sz+py*sz*0.45} ${p2.x-ux*sz-px*sz*0.45},${p2.y-uy*sz-py*sz*0.45}`);
       }
 
-      const midBx = 0.125 * p1.x + 0.375 * cp1x + 0.375 * cp2x + 0.125 * endX;
-      const midBy = 0.125 * p1.y + 0.375 * cp1y + 0.375 * cp2y + 0.125 * endY;
-      if (curveHandle) {
-        curveHandle.setAttribute('cx', midBx);
-        curveHandle.setAttribute('cy', midBy);
-      }
+      // Move both control point handles and guide lines
+      if (handle1) { handle1.setAttribute('cx', cp1x); handle1.setAttribute('cy', cp1y); }
+      if (handle2) { handle2.setAttribute('cx', cp2x); handle2.setAttribute('cy', cp2y); }
+      const guide1 = this.svg.querySelector('.curve-guide[data-curve-which="1"]');
+      const guide2 = this.svg.querySelector('.curve-guide[data-curve-which="2"]');
+      if (guide1) { guide1.setAttribute('x2', cp1x); guide1.setAttribute('y2', cp1y); }
+      if (guide2) { guide2.setAttribute('x2', cp2x); guide2.setAttribute('y2', cp2y); }
 
       // Expand canvas
       let needW = +this.svg.getAttribute('width');
       let needH = +this.svg.getAttribute('height');
-      for (const v of [cp1x, cp2x, endX, midBx]) if (v + 60 > needW) needW = v + 60;
-      for (const v of [cp1y, cp2y, endY, midBy]) if (v + 60 > needH) needH = v + 60;
+      for (const v of [cp1x, cp2x, endX]) if (v + 60 > needW) needW = v + 60;
+      for (const v of [cp1y, cp2y, endY]) if (v + 60 > needH) needH = v + 60;
       this.svg.setAttribute('width', needW);
       this.svg.setAttribute('height', needH);
       this.svg.style.minWidth = needW + 'px';
@@ -1840,6 +1867,7 @@ class App {
       g.classList.remove('selected');
     });
     this.svg.querySelectorAll('.arrow-drag-handle').forEach(el => el.remove());
+    this.svg.querySelectorAll('.curve-guide').forEach(el => el.remove());
   }
 
   _reapplyMultiSelect() {
@@ -1899,6 +1927,7 @@ class App {
       g.classList.remove('selected');
     });
     this.svg.querySelectorAll('.arrow-drag-handle').forEach(el => el.remove());
+    this.svg.querySelectorAll('.curve-guide').forEach(el => el.remove());
   }
 
   updateToolbar() {
@@ -1966,11 +1995,12 @@ class App {
       const d2 = getAnchorDir(ta);
       const dist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
       const defaultArm = Math.max(30, Math.min(80, dist * 0.4));
-      const arm = arrow.curveArm != null ? arrow.curveArm : defaultArm;
-      const cp1x = p1.x + d1.dx * arm;
-      const cp1y = p1.y + d1.dy * arm;
-      const cp2x = p2.x + d2.dx * arm;
-      const cp2y = p2.y + d2.dy * arm;
+      const arm1 = arrow.curveArm1 != null ? arrow.curveArm1 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
+      const arm2 = arrow.curveArm2 != null ? arrow.curveArm2 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
+      const cp1x = p1.x + d1.dx * arm1;
+      const cp1y = p1.y + d1.dy * arm1;
+      const cp2x = p2.x + d2.dx * arm2;
+      const cp2y = p2.y + d2.dy * arm2;
       maxX = Math.max(maxX, p1.x + 40, p2.x + 40, cp1x + 40, cp2x + 40);
       maxY = Math.max(maxY, p1.y + 40, p2.y + 40, cp1y + 40, cp2y + 40);
 
@@ -2406,7 +2436,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .curve-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 
@@ -2503,7 +2533,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .curve-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 

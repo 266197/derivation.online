@@ -595,11 +595,11 @@ class App {
     this.arrows = state.arrows || [];
     if (state.fontFamily && state.fontFamily !== getFontFamily()) {
       setFontFamily(state.fontFamily);
-      document.getElementById('font-family').value = state.fontFamily;
+      document.getElementById('font-family-select').value = state.fontFamily;
     }
     if (state.fontSize != null && state.fontSize !== getFontSize()) {
       setFontSize(state.fontSize);
-      document.getElementById('font-size').value = state.fontSize;
+      document.getElementById('font-size-select').value = state.fontSize;
     }
     if (state.alignBottom != null) {
       this.alignBottom = state.alignBottom;

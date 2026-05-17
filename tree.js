@@ -449,6 +449,8 @@ class TreeNode {
     this.subtreeW = 0;
     this.offsetX = 0;
     this.offsetY = 0;
+    this.branchParentAnchor = null; // null = default 'bottom'
+    this.branchChildAnchor = null;  // null = default 'top'
   }
 
   get label() { return runsToPlainText(this.runs); }
@@ -479,6 +481,8 @@ class TreeNode {
     if (this.triangleFillColor) o.triangleFillColor = this.triangleFillColor;
     if (this.offsetX) o.offsetX = this.offsetX;
     if (this.offsetY) o.offsetY = this.offsetY;
+    if (this.branchParentAnchor) o.branchParentAnchor = this.branchParentAnchor;
+    if (this.branchChildAnchor) o.branchChildAnchor = this.branchChildAnchor;
     return o;
   }
 
@@ -492,6 +496,8 @@ class TreeNode {
     n.triangleFillColor = obj.triangleFillColor || null;
     n.offsetX = obj.offsetX || 0;
     n.offsetY = obj.offsetY || 0;
+    n.branchParentAnchor = obj.branchParentAnchor || null;
+    n.branchChildAnchor = obj.branchChildAnchor || null;
     n.children = (obj.children || []).map(c => TreeNode.fromJSON(c, n));
     return n;
   }

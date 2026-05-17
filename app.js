@@ -55,7 +55,7 @@ class App {
 
     const deselectHandler = (e) => {
       if (this._draggingArrow) return;
-      if (e.target.closest('.node-group') || e.target.closest('.arrow-group') || e.target.closest('.arrow-drag-handle') || e.target.closest('.branch-group')) return;
+      if (e.target.closest('.node-group') || e.target.closest('.arrow-group') || e.target.closest('.arrow-drag-handle') || e.target.closest('.branch-drag-handle') || e.target.closest('.branch-group')) return;
       if (!this.arrowMode) {
         this.commitEdit();
         this.deselectAll();
@@ -325,6 +325,7 @@ class App {
     this.svg.querySelectorAll('.arrow-group.selected').forEach(g => g.classList.remove('selected'));
     this.svg.querySelectorAll('.branch-group.selected').forEach(g => g.classList.remove('selected'));
     this.svg.querySelectorAll('.arrow-drag-handle').forEach(el => el.remove());
+    this.svg.querySelectorAll('.branch-drag-handle').forEach(el => el.remove());
     this.svg.querySelectorAll('.curve-guide').forEach(el => el.remove());
   }
 
@@ -1856,6 +1857,106 @@ class App {
     document.addEventListener('mouseup', onUp);
   }
 
+  // --- Branch anchor dragging ---
+
+  _renderBranchAnchorHandle(cx, cy, childNode, endpoint) {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', cx);
+    circle.setAttribute('cy', cy);
+    circle.setAttribute('r', 6);
+    circle.setAttribute('class', 'branch-drag-handle');
+    circle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this._startBranchAnchorDrag(childNode, endpoint, e);
+    });
+    this.svg.appendChild(circle);
+  }
+
+  _startBranchAnchorDrag(childNode, endpoint, mouseEvent) {
+    const svgPt = (e) => this.svgPoint(e);
+    // The node whose edge we're changing
+    const node = endpoint === 'parent' ? childNode.parent : childNode;
+    const currentAnchor = endpoint === 'parent'
+      ? (childNode.branchParentAnchor || 'bottom')
+      : (childNode.branchChildAnchor || 'top');
+
+    // Preview line from the fixed (other) endpoint to cursor
+    const fixedEnd = endpoint === 'parent'
+      ? getAnchorPos(childNode, childNode.branchChildAnchor || 'top')
+      : getAnchorPos(childNode.parent, childNode.branchParentAnchor || 'bottom');
+
+    const previewLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    previewLine.setAttribute('stroke', '#7c3aed');
+    previewLine.setAttribute('stroke-width', '1.5');
+    previewLine.setAttribute('stroke-dasharray', '4 3');
+    previewLine.setAttribute('x1', fixedEnd.x);
+    previewLine.setAttribute('y1', fixedEnd.y);
+    previewLine.setAttribute('x2', fixedEnd.x);
+    previewLine.setAttribute('y2', fixedEnd.y);
+    this.svg.appendChild(previewLine);
+
+    // Show anchor dots on the target node
+    let highlightDots = [];
+    const showAnchors = () => {
+      clearHighlights();
+      for (const a of ['top', 'bottom', 'left', 'right']) {
+        const p = getAnchorPos(node, a);
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', p.x);
+        dot.setAttribute('cy', p.y);
+        dot.setAttribute('r', 5);
+        dot.setAttribute('class', 'anchor-dot active');
+        dot.style.opacity = '0.6';
+        this.svg.appendChild(dot);
+        highlightDots.push(dot);
+      }
+    };
+    const clearHighlights = () => {
+      highlightDots.forEach(d => d.remove());
+      highlightDots = [];
+    };
+
+    showAnchors();
+
+    const onMove = (e) => {
+      const pt = svgPt(e);
+      previewLine.setAttribute('x2', pt.x);
+      previewLine.setAttribute('y2', pt.y);
+    };
+
+    const onUp = (e) => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      previewLine.remove();
+      clearHighlights();
+
+      const pt = svgPt(e);
+      // Find closest anchor on the target node
+      let bestAnchor = currentAnchor, bestDist = Infinity;
+      for (const a of ['top', 'bottom', 'left', 'right']) {
+        const p = getAnchorPos(node, a);
+        const d = (pt.x - p.x) ** 2 + (pt.y - p.y) ** 2;
+        if (d < bestDist) { bestDist = d; bestAnchor = a; }
+      }
+
+      if (bestAnchor !== currentAnchor) {
+        this.saveState();
+        if (endpoint === 'parent') {
+          childNode.branchParentAnchor = bestAnchor === 'bottom' ? null : bestAnchor;
+        } else {
+          childNode.branchChildAnchor = bestAnchor === 'top' ? null : bestAnchor;
+        }
+      }
+
+      this.render();
+      this.selectBranch(childNode.id);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
   // --- Tree operations ---
 
   addRootNode() {
@@ -2163,24 +2264,33 @@ class App {
     allNodes.forEach(n => {
       if (n.children.length === 0) return;
 
-      // Draw a combined fan path for non-triangle, same-color branches (sharp miter join)
+      // Draw a combined fan path for non-triangle, same-color, same-parent-anchor branches
       const normalChildren = n.children.filter(c => !c.triangle);
       if (normalChildren.length >= 2) {
-        // Group by color for combined paths
-        const byColor = {};
+        // Group by color AND parent anchor for combined paths
+        const byKey = {};
         normalChildren.forEach(c => {
           const col = c.branchColor || '#333';
-          if (!byColor[col]) byColor[col] = [];
-          byColor[col].push(c);
+          const pAnchor = c.branchParentAnchor || 'bottom';
+          const key = col + '|' + pAnchor;
+          if (!byKey[key]) byKey[key] = { color: col, pAnchor, kids: [] };
+          byKey[key].kids.push(c);
         });
-        Object.entries(byColor).forEach(([color, kids]) => {
+        Object.values(byKey).forEach(({ color, pAnchor, kids }) => {
           if (kids.length < 2) return;
-          // Sort children left to right
-          const sorted = [...kids].sort((a, b) => a.x - b.x);
-          // Build path: leftmost child → parent → next child, M parent → next child, ...
-          let d = `M ${sorted[0].x} ${sorted[0].y} L ${n.x} ${n.y + n.h} L ${sorted[1].x} ${sorted[1].y}`;
+          const pp = getAnchorPos(n, pAnchor);
+          // Sort children by their child-anchor x position
+          const sorted = [...kids].sort((a, b) => {
+            const pa = getAnchorPos(a, a.branchChildAnchor || 'top');
+            const pb = getAnchorPos(b, b.branchChildAnchor || 'top');
+            return pa.x - pb.x;
+          });
+          const cp0 = getAnchorPos(sorted[0], sorted[0].branchChildAnchor || 'top');
+          const cp1 = getAnchorPos(sorted[1], sorted[1].branchChildAnchor || 'top');
+          let d = `M ${cp0.x} ${cp0.y} L ${pp.x} ${pp.y} L ${cp1.x} ${cp1.y}`;
           for (let i = 2; i < sorted.length; i++) {
-            d += ` M ${n.x} ${n.y + n.h} L ${sorted[i].x} ${sorted[i].y}`;
+            const cpi = getAnchorPos(sorted[i], sorted[i].branchChildAnchor || 'top');
+            d += ` M ${pp.x} ${pp.y} L ${cpi.x} ${cpi.y}`;
           }
           const fan = document.createElementNS('http://www.w3.org/2000/svg', 'path');
           fan.setAttribute('d', d);
@@ -2199,22 +2309,23 @@ class App {
         g.style.cursor = 'pointer';
 
         if (c.triangle) {
+          const pp = getAnchorPos(n, c.branchParentAnchor || 'bottom');
           const triGap = c.borderColor ? 3 : 0;
-          const naturalDy = c.y - (n.y + n.h);
+          const naturalDy = c.y - pp.y;
           const maxTriH = getLevelGap() + 10; // reasonable max triangle height
-          const triTop = naturalDy > maxTriH ? c.y - triGap - maxTriH : n.y + n.h;
+          const triTop = naturalDy > maxTriH ? c.y - triGap - maxTriH : pp.y;
 
           // If triangle is capped, draw a stem line from parent to triangle top
-          if (triTop > n.y + n.h + 1) {
+          if (triTop > pp.y + 1) {
             const stem = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            stem.setAttribute('x1', n.x); stem.setAttribute('y1', n.y + n.h);
+            stem.setAttribute('x1', pp.x); stem.setAttribute('y1', pp.y);
             stem.setAttribute('x2', c.x); stem.setAttribute('y2', triTop);
             stem.setAttribute('class', 'branch-line');
             if (c.branchColor) stem.style.stroke = c.branchColor;
             g.appendChild(stem);
           }
 
-          const pts = `${triTop > n.y + n.h + 1 ? c.x : n.x},${triTop} ${c.x - c.w/2 + 4},${c.y - triGap} ${c.x + c.w/2 - 4},${c.y - triGap}`;
+          const pts = `${triTop > pp.y + 1 ? c.x : pp.x},${triTop} ${c.x - c.w/2 + 4},${c.y - triGap} ${c.x + c.w/2 - 4},${c.y - triGap}`;
           const hit = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
           hit.setAttribute('points', pts);
           hit.setAttribute('stroke', 'transparent');
@@ -2230,19 +2341,25 @@ class App {
           if (c.branchColor) path.style.stroke = c.branchColor;
           g.appendChild(path);
         } else {
+          const bp1 = getAnchorPos(n, c.branchParentAnchor || 'bottom');
+          const bp2 = getAnchorPos(c, c.branchChildAnchor || 'top');
           // Hit area for clicking
           const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          hit.setAttribute('x1', n.x); hit.setAttribute('y1', n.y + n.h);
-          hit.setAttribute('x2', c.x); hit.setAttribute('y2', c.y);
+          hit.setAttribute('x1', bp1.x); hit.setAttribute('y1', bp1.y);
+          hit.setAttribute('x2', bp2.x); hit.setAttribute('y2', bp2.y);
           hit.setAttribute('stroke', 'transparent');
           hit.setAttribute('stroke-width', String(BRANCH_HIT_WIDTH));
           hit.setAttribute('pointer-events', 'stroke');
           g.appendChild(hit);
           // Always render branch line in group (hidden when fan covers it, shown when selected)
-          const siblings = normalChildren.filter(s => (s.branchColor || '#333') === (c.branchColor || '#333'));
+          const pAnchor = c.branchParentAnchor || 'bottom';
+          const siblings = normalChildren.filter(s =>
+            (s.branchColor || '#333') === (c.branchColor || '#333') &&
+            (s.branchParentAnchor || 'bottom') === pAnchor
+          );
           const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          line.setAttribute('x1', n.x); line.setAttribute('y1', n.y + n.h);
-          line.setAttribute('x2', c.x); line.setAttribute('y2', c.y);
+          line.setAttribute('x1', bp1.x); line.setAttribute('y1', bp1.y);
+          line.setAttribute('x2', bp2.x); line.setAttribute('y2', bp2.y);
           line.setAttribute('class', 'branch-line');
           if (c.branchColor) line.style.stroke = c.branchColor;
           if (siblings.length >= 2) line.style.opacity = '0';
@@ -2270,6 +2387,21 @@ class App {
     if (this._deferredTriangleGroups) {
       this._deferredTriangleGroups.forEach(g => this.svg.appendChild(g));
       this._deferredTriangleGroups = null;
+    }
+
+    // Show drag handles for selected branch anchor endpoints
+    if (this.selectedBranchIds.size === 1) {
+      const childId = this.selectedBranchIds.values().next().value;
+      const child = this.findNode(childId);
+      if (child && child.parent) {
+        const parent = child.parent;
+        const pp = getAnchorPos(parent, child.branchParentAnchor || 'bottom');
+        this._renderBranchAnchorHandle(pp.x, pp.y, child, 'parent');
+        if (!child.triangle) {
+          const cp = getAnchorPos(child, child.branchChildAnchor || 'top');
+          this._renderBranchAnchorHandle(cp.x, cp.y, child, 'child');
+        }
+      }
     }
 
     // nodes
@@ -2641,7 +2773,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .curve-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 
@@ -2738,7 +2870,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .curve-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 
@@ -2855,7 +2987,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .curve-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 

@@ -56,7 +56,7 @@ class App {
 
     const deselectHandler = (e) => {
       if (this._draggingArrow) return;
-      if (e.target.closest('.node-group') || e.target.closest('.arrow-group') || e.target.closest('.arrow-drag-handle') || e.target.closest('.branch-drag-handle') || e.target.closest('.branch-group')) return;
+      if (e.target.closest('.node-group') || e.target.closest('.arrow-group') || e.target.closest('.arrow-drag-handle') || e.target.closest('.label-drag-handle') || e.target.closest('.branch-drag-handle') || e.target.closest('.branch-group')) return;
       if (!this.arrowMode) {
         this.commitEdit();
         this.deselectAll();
@@ -326,6 +326,7 @@ class App {
     this.svg.querySelectorAll('.arrow-group.selected').forEach(g => g.classList.remove('selected'));
     this.svg.querySelectorAll('.branch-group.selected').forEach(g => g.classList.remove('selected'));
     this.svg.querySelectorAll('.arrow-drag-handle').forEach(el => el.remove());
+    this.svg.querySelectorAll('.label-drag-handle').forEach(el => el.remove());
     this.svg.querySelectorAll('.branch-drag-handle').forEach(el => el.remove());
     this.svg.querySelectorAll('.curve-guide').forEach(el => el.remove());
   }
@@ -1275,11 +1276,15 @@ class App {
       head.setAttribute('style', `fill:${arrowColor};`);
       g.appendChild(head);
 
+      // Apply label offset
+      const finalLabelX = labelX + (arrow.labelOffsetX || 0);
+      const finalLabelY = labelY + (arrow.labelOffsetY || 0);
+
       const arrowRuns = getArrowLabelRuns(arrow);
       if (arrowRuns.length > 0) {
         const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        lbl.setAttribute('x', labelX);
-        lbl.setAttribute('y', labelY);
+        lbl.setAttribute('x', finalLabelX);
+        lbl.setAttribute('y', finalLabelY);
         lbl.setAttribute('class', 'arrow-label');
         for (const r of arrowRuns) {
           const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -1303,7 +1308,7 @@ class App {
 
       g.addEventListener('dblclick', (e) => {
         e.stopPropagation();
-        this.startEditingArrow(idx, labelX, labelY);
+        this.startEditingArrow(idx, finalLabelX, finalLabelY);
       });
 
       this.svg.appendChild(g);
@@ -1311,6 +1316,10 @@ class App {
       if (idx === this.selectedArrowIdx) {
         this._renderDragHandle(p1.x, p1.y, idx, 'from', nodeMap);
         this._renderDragHandle(tipX, tipY, idx, 'to', nodeMap);
+        // Label drag handle
+        if (arrowRuns.length > 0) {
+          this._renderLabelDragHandle(finalLabelX, finalLabelY, idx, labelX, labelY);
+        }
       }
     });
 
@@ -1342,6 +1351,69 @@ class App {
     });
 
     this.svg.appendChild(circle);
+  }
+
+  _renderLabelDragHandle(cx, cy, arrowIdx, baseLabelX, baseLabelY) {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', cx);
+    circle.setAttribute('cy', cy);
+    circle.setAttribute('r', 5);
+    circle.setAttribute('class', 'label-drag-handle');
+
+    circle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this._startLabelDrag(arrowIdx, baseLabelX, baseLabelY, e);
+    });
+
+    this.svg.appendChild(circle);
+  }
+
+  _startLabelDrag(arrowIdx, baseLabelX, baseLabelY, mouseEvent) {
+    const arrow = this.arrows[arrowIdx];
+    if (!arrow) return;
+    this._draggingArrow = true;
+    let saved = false;
+
+    const svgPt = (e) => this.svgPoint(e);
+    const startPt = svgPt(mouseEvent);
+    const startOffX = arrow.labelOffsetX || 0;
+    const startOffY = arrow.labelOffsetY || 0;
+
+    // Find the label text and the drag handle for live updates
+    const arrowGroup = this.svg.querySelector(`.arrow-group[data-idx="${arrowIdx}"]`);
+    const lblEl = arrowGroup ? arrowGroup.querySelector('.arrow-label') : null;
+    const handleEl = this.svg.querySelector('.label-drag-handle');
+
+    const onMove = (e) => {
+      if (!saved) { this.saveState(); saved = true; }
+      const pt = svgPt(e);
+      arrow.labelOffsetX = startOffX + (pt.x - startPt.x);
+      arrow.labelOffsetY = startOffY + (pt.y - startPt.y);
+
+      // Live update label and handle position without full re-render
+      const newX = baseLabelX + arrow.labelOffsetX;
+      const newY = baseLabelY + arrow.labelOffsetY;
+      if (lblEl) {
+        lblEl.setAttribute('x', newX);
+        lblEl.setAttribute('y', newY);
+      }
+      if (handleEl) {
+        handleEl.setAttribute('cx', newX);
+        handleEl.setAttribute('cy', newY);
+      }
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      setTimeout(() => { this._draggingArrow = false; }, 50);
+      this.render();
+      this.selectArrow(arrowIdx);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   }
 
   _renderElbowHandle(cx, cy, arrowIdx, axis, which) {
@@ -2867,7 +2939,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide, .snap-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .label-drag-handle, .branch-drag-handle, .curve-guide, .snap-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 
@@ -2964,7 +3036,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide, .snap-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .label-drag-handle, .branch-drag-handle, .curve-guide, .snap-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 
@@ -3081,7 +3153,7 @@ class App {
     const svgEl = this.svg.cloneNode(true);
     svgEl.querySelectorAll('.selected').forEach(el => el.classList.remove('selected'));
     svgEl.querySelectorAll('.arrow-source').forEach(el => el.classList.remove('arrow-source'));
-    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .branch-drag-handle, .curve-guide, .snap-guide').forEach(el => el.remove());
+    svgEl.querySelectorAll('.anchor-dot, .arrow-drag-handle, .label-drag-handle, .branch-drag-handle, .curve-guide, .snap-guide').forEach(el => el.remove());
     svgEl.querySelectorAll('path[stroke="transparent"], line[stroke="transparent"], polygon[stroke="transparent"]').forEach(el => el.remove());
     svgEl.querySelectorAll('.branch-line').forEach(el => { if (el.style.opacity === '0') el.remove(); });
 

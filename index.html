@@ -135,6 +135,7 @@ header {
   z-index: 10;
   flex-wrap: nowrap;
   min-height: 36px;
+  overflow-x: auto;
 }
 
 .tb-sep {
@@ -149,6 +150,7 @@ header {
   display: flex;
   gap: 1px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 /* Toolbar icon buttons — Google Docs style */
@@ -804,6 +806,10 @@ button.active, .tb-btn.active {
   display: flex;
   align-items: center;
   gap: 1px;
+  flex-shrink: 0;
+}
+.fmt-btn {
+  flex-shrink: 0;
 }
 
 /* ── Main layout: side panel + canvas ── */
@@ -919,6 +925,7 @@ button.active, .tb-btn.active {
   gap: 3px;
   align-items: center;
   flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .fmt-sep {
@@ -1523,6 +1530,15 @@ button.active, .tb-btn.active {
       <button class="fmt-btn" id="afmt-solid" onclick="app.setArrowStyle('solid')" title="Solid">&#8212;</button>
       <button class="fmt-btn" id="afmt-dash" onclick="app.setArrowStyle('dash')" title="Dashed">- -</button>
       <button class="fmt-btn" id="afmt-dot" onclick="app.setArrowStyle('dot')" title="Dotted">&middot;&middot;&middot;</button>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="fmt-row">
+      <button class="fmt-btn" id="afmt-head-start" onclick="app.toggleArrowHead('start')" title="Head at start">
+        <svg width="16" height="12" viewBox="0 0 16 12"><polyline points="8,2 3,6 8,10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><line x1="3" y1="6" x2="15" y2="6" stroke="currentColor" stroke-width="1.5"/></svg>
+      </button>
+      <button class="fmt-btn on" id="afmt-head-end" onclick="app.toggleArrowHead('end')" title="Head at end">
+        <svg width="16" height="12" viewBox="0 0 16 12"><line x1="1" y1="6" x2="13" y2="6" stroke="currentColor" stroke-width="1.5"/><polyline points="8,2 13,6 8,10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      </button>
     </div>
     <span class="tb-sep"></span>
     <div id="arrow-color-swatches" class="fmt-row"></div>

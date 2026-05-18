@@ -717,6 +717,19 @@ class App {
     this.selectArrow(this.selectedArrowIdx);
   }
 
+  toggleArrowHead(which) {
+    if (this.selectedArrowIdx === null) return;
+    this.saveState();
+    const arrow = this.arrows[this.selectedArrowIdx];
+    if (which === 'start') {
+      arrow.headStart = !arrow.headStart;
+    } else {
+      arrow.headEnd = arrow.headEnd === false ? true : false;
+    }
+    this.render();
+    this.selectArrow(this.selectedArrowIdx);
+  }
+
   setArrowColor(hex) {
     if (this.selectedArrowIdx === null) return;
     this.saveState();
@@ -745,6 +758,8 @@ class App {
     document.querySelectorAll('#arrow-color-swatches .fmt-swatch').forEach(s => {
       s.classList.toggle('on', s.dataset.color === color);
     });
+    document.getElementById('afmt-head-start').classList.toggle('on', !!arrow.headStart);
+    document.getElementById('afmt-head-end').classList.toggle('on', arrow.headEnd !== false);
   }
 
   findNode(id) {
@@ -1291,16 +1306,22 @@ class App {
       const shape = arrow.shape || 'curve';
 
       const arrowSize = 7;
+      const hasHeadEnd = arrow.headEnd !== false;
+      const hasHeadStart = !!arrow.headStart;
       let pathD, ux, uy, tipX, tipY, labelX, labelY;
+      let startUx, startUy; // unit vector pointing INTO start point (for start arrowhead)
 
       if (shape === 'straight') {
         const dx = p2.x - p1.x, dy = p2.y - p1.y;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
         ux = dx / len; uy = dy / len;
+        startUx = -ux; startUy = -uy;
         tipX = p2.x; tipY = p2.y;
-        const endX = tipX - ux * arrowSize * 0.8;
-        const endY = tipY - uy * arrowSize * 0.8;
-        pathD = `M ${p1.x} ${p1.y} L ${endX} ${endY}`;
+        const endX = hasHeadEnd ? tipX - ux * arrowSize * 0.8 : tipX;
+        const endY = hasHeadEnd ? tipY - uy * arrowSize * 0.8 : tipY;
+        const startX = hasHeadStart ? p1.x + ux * arrowSize * 0.8 : p1.x;
+        const startY = hasHeadStart ? p1.y + uy * arrowSize * 0.8 : p1.y;
+        pathD = `M ${startX} ${startY} L ${endX} ${endY}`;
         labelX = (p1.x + p2.x) / 2;
         labelY = (p1.y + p2.y) / 2 - 6;
 
@@ -1372,10 +1393,17 @@ class App {
 
         // Arrowhead direction: strictly from target anchor orientation
         ux = -d2.dx; uy = -d2.dy;
+        startUx = -d1.dx; startUy = -d1.dy; // points INTO p1 from the path direction
         tipX = p2.x; tipY = p2.y;
-        const endX = tipX - ux * arrowSize * 0.8;
-        const endY = tipY - uy * arrowSize * 0.8;
-        pts.push({ x: endX, y: endY });
+        if (hasHeadEnd) {
+          const endX = tipX - ux * arrowSize * 0.8;
+          const endY = tipY - uy * arrowSize * 0.8;
+          pts.push({ x: endX, y: endY });
+        }
+        if (hasHeadStart) {
+          // Adjust the first segment start to leave room for start arrowhead
+          pts[0] = { x: p1.x + d1.dx * arrowSize * 0.8, y: p1.y + d1.dy * arrowSize * 0.8 };
+        }
 
         // Remove collinear middle points (three points on same horizontal/vertical line)
         for (let i = pts.length - 3; i >= 0; i--) {
@@ -1413,10 +1441,16 @@ class App {
         const ty = 3 * (p2.y - cp2y);
         const tLen = Math.sqrt(tx * tx + ty * ty) || 1;
         ux = tx / tLen; uy = ty / tLen;
+        // Start tangent: from p1 toward cp1
+        const stx = cp1x - p1.x, sty = cp1y - p1.y;
+        const stLen = Math.sqrt(stx * stx + sty * sty) || 1;
+        startUx = -stx / stLen; startUy = -sty / stLen; // points INTO p1
         tipX = p2.x; tipY = p2.y;
-        const endX = tipX - ux * arrowSize * 0.8;
-        const endY = tipY - uy * arrowSize * 0.8;
-        pathD = `M ${p1.x} ${p1.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
+        const endX = hasHeadEnd ? tipX - ux * arrowSize * 0.8 : tipX;
+        const endY = hasHeadEnd ? tipY - uy * arrowSize * 0.8 : tipY;
+        const startX = hasHeadStart ? p1.x - startUx * arrowSize * 0.8 : p1.x;
+        const startY = hasHeadStart ? p1.y - startUy * arrowSize * 0.8 : p1.y;
+        pathD = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
 
         // Bezier midpoint for label positioning
         const midBx = 0.125 * p1.x + 0.375 * cp1x + 0.375 * cp2x + 0.125 * endX;
@@ -1452,13 +1486,25 @@ class App {
       path.setAttribute('style', `stroke:${arrowColor};${dashStyle}`);
       g.appendChild(path);
 
-      const px = -uy, py = ux;
-      const head = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-      head.setAttribute('points',
-        `${tipX},${tipY} ${tipX-ux*arrowSize+px*arrowSize*0.45},${tipY-uy*arrowSize+py*arrowSize*0.45} ${tipX-ux*arrowSize-px*arrowSize*0.45},${tipY-uy*arrowSize-py*arrowSize*0.45}`);
-      head.setAttribute('class', 'arrow-head');
-      head.setAttribute('style', `fill:${arrowColor};`);
-      g.appendChild(head);
+      if (hasHeadEnd) {
+        const px = -uy, py = ux;
+        const head = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        head.setAttribute('points',
+          `${tipX},${tipY} ${tipX-ux*arrowSize+px*arrowSize*0.45},${tipY-uy*arrowSize+py*arrowSize*0.45} ${tipX-ux*arrowSize-px*arrowSize*0.45},${tipY-uy*arrowSize-py*arrowSize*0.45}`);
+        head.setAttribute('class', 'arrow-head arrow-head-end');
+        head.setAttribute('style', `fill:${arrowColor};`);
+        g.appendChild(head);
+      }
+      if (hasHeadStart) {
+        const sux = startUx, suy = startUy;
+        const spx = -suy, spy = sux;
+        const headS = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        headS.setAttribute('points',
+          `${p1.x},${p1.y} ${p1.x-sux*arrowSize+spx*arrowSize*0.45},${p1.y-suy*arrowSize+spy*arrowSize*0.45} ${p1.x-sux*arrowSize-spx*arrowSize*0.45},${p1.y-suy*arrowSize-spy*arrowSize*0.45}`);
+        headS.setAttribute('class', 'arrow-head arrow-head-start');
+        headS.setAttribute('style', `fill:${arrowColor};`);
+        g.appendChild(headS);
+      }
 
       // Apply label offset
       const finalLabelX = labelX + (arrow.labelOffsetX || 0);
@@ -1701,19 +1747,34 @@ class App {
       const ty = 3 * (p2.y - cp2y);
       const tLen = Math.sqrt(tx * tx + ty * ty) || 1;
       const ux = tx / tLen, uy = ty / tLen;
-      const endX = p2.x - ux * 7 * 0.8;
-      const endY = p2.y - uy * 7 * 0.8;
-      const newD = `M ${p1.x} ${p1.y} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
+      const hasEnd = arrow.headEnd !== false;
+      const hasStart = !!arrow.headStart;
+      const endX = hasEnd ? p2.x - ux * 7 * 0.8 : p2.x;
+      const endY = hasEnd ? p2.y - uy * 7 * 0.8 : p2.y;
+      // Start tangent for start arrowhead
+      const stx2 = cp1x - p1.x, sty2 = cp1y - p1.y;
+      const stLen2 = Math.sqrt(stx2 * stx2 + sty2 * sty2) || 1;
+      const sux = -stx2 / stLen2, suy = -sty2 / stLen2;
+      const startX = hasStart ? p1.x - sux * 7 * 0.8 : p1.x;
+      const startY = hasStart ? p1.y - suy * 7 * 0.8 : p1.y;
+      const newD = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
 
       if (pathEl) pathEl.setAttribute('d', newD);
       if (hitEl) hitEl.setAttribute('d', newD);
 
-      // Update arrowhead
-      const head = arrowGroup ? arrowGroup.querySelector('.arrow-head') : null;
-      if (head) {
+      // Update end arrowhead
+      const headEnd = arrowGroup ? arrowGroup.querySelector('.arrow-head-end') : null;
+      if (headEnd) {
         const px = -uy, py = ux, sz = 7;
-        head.setAttribute('points',
+        headEnd.setAttribute('points',
           `${p2.x},${p2.y} ${p2.x-ux*sz+px*sz*0.45},${p2.y-uy*sz+py*sz*0.45} ${p2.x-ux*sz-px*sz*0.45},${p2.y-uy*sz-py*sz*0.45}`);
+      }
+      // Update start arrowhead
+      const headStart = arrowGroup ? arrowGroup.querySelector('.arrow-head-start') : null;
+      if (headStart) {
+        const spx = -suy, spy = sux, sz = 7;
+        headStart.setAttribute('points',
+          `${p1.x},${p1.y} ${p1.x-sux*sz+spx*sz*0.45},${p1.y-suy*sz+spy*sz*0.45} ${p1.x-sux*sz-spx*sz*0.45},${p1.y-suy*sz-spy*sz*0.45}`);
       }
 
       // Move both control point handles and guide lines
@@ -1842,7 +1903,14 @@ class App {
       pts.push({ x: e2.x, y: e2.y });
 
       const ux = -d2.dx, uy = -d2.dy;
-      pts.push({ x: p2.x - ux * 7 * 0.8, y: p2.y - uy * 7 * 0.8 });
+      const hasEnd = arrow.headEnd !== false;
+      const hasStart = !!arrow.headStart;
+      if (hasEnd) {
+        pts.push({ x: p2.x - ux * 7 * 0.8, y: p2.y - uy * 7 * 0.8 });
+      }
+      if (hasStart) {
+        pts[0] = { x: p1.x + d1.dx * 7 * 0.8, y: p1.y + d1.dy * 7 * 0.8 };
+      }
 
       // Remove collinear middle points
       for (let i = pts.length - 3; i >= 0; i--) {
@@ -1856,12 +1924,20 @@ class App {
       if (pathEl) pathEl.setAttribute('d', newD);
       if (hitEl) hitEl.setAttribute('d', newD);
 
-      // Update arrowhead
-      const head = arrowGroup ? arrowGroup.querySelector('.arrow-head') : null;
-      if (head) {
+      // Update end arrowhead
+      const headEnd = arrowGroup ? arrowGroup.querySelector('.arrow-head-end') : null;
+      if (headEnd) {
         const px = -uy, py = ux, sz = 7;
-        head.setAttribute('points',
+        headEnd.setAttribute('points',
           `${p2.x},${p2.y} ${p2.x-ux*sz+px*sz*0.45},${p2.y-uy*sz+py*sz*0.45} ${p2.x-ux*sz-px*sz*0.45},${p2.y-uy*sz-py*sz*0.45}`);
+      }
+      // Update start arrowhead
+      const headStartEl = arrowGroup ? arrowGroup.querySelector('.arrow-head-start') : null;
+      if (headStartEl) {
+        const sux = -d1.dx, suy = -d1.dy;
+        const spx = -suy, spy = sux, sz = 7;
+        headStartEl.setAttribute('points',
+          `${p1.x},${p1.y} ${p1.x-sux*sz+spx*sz*0.45},${p1.y-suy*sz+spy*sz*0.45} ${p1.x-sux*sz-spx*sz*0.45},${p1.y-suy*sz-spy*sz*0.45}`);
       }
 
       // Move elbow handles
@@ -3083,7 +3159,7 @@ class App {
 
   _highlightBrackets() {
     const text = this.bracketInput.value;
-    const cursor = this.bracketInput.selectionStart;
+    const cursor = this.bracketInput.selectionStart ?? -1;
     const depthColors = 5; // number of depth color classes
 
     // Find all bracket positions and their depths

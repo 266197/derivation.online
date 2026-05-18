@@ -321,7 +321,7 @@ function runsToFormattedText(runs) {
     if (r.sub) t = `_{${t}}`;
     if (r.smallcaps) t = `\\textsc{${t}}`;
     if (r.underline) t = `\\underline{${t}}`;
-    if (r.strikethrough) t = `\\sout{${t}}`;
+    if (r.strike) t = `\\sout{${t}}`;
     out += t;
   }
   return out;
@@ -392,7 +392,7 @@ function parseFormattedText(str) {
         else if (cmd === 'textit') run.italic = true;
         else if (cmd === 'textsc') run.smallcaps = true;
         else if (cmd === 'underline') run.underline = true;
-        else if (cmd === 'sout') run.strikethrough = true;
+        else if (cmd === 'sout') run.strike = true;
         runs.push(run);
       }
       continue;

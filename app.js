@@ -53,12 +53,12 @@ class App {
     this.bracketInput.placeholder =
       '[S\n' +
       '  [NP\n' +
-      '    [.the cat]\n' +
+      '    [\\triangle{the cat}]\n' +
       '  ]\n' +
       '  [VP\n' +
       '    [V\\\\chased]\n' +
       '    [NP\n' +
-      '      [.the mouse]\n' +
+      '      [\\triangle{the mouse}]\n' +
       '    ]\n' +
       '  ]\n' +
       ']';

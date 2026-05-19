@@ -565,10 +565,10 @@ class TreeNode {
   toLabeledBrackets(indent = 0) {
     const pad = '  '.repeat(indent);
     const lbl = runsToFormattedText(this.runs).replace(/\n/g, '\\\\');
-    const prefix = this.triangle ? '.' : '';
-    if (this.isLeaf) return `${pad}[${prefix}${lbl}]`;
+    const wrappedLbl = this.triangle ? `\\triangle{${lbl}}` : lbl;
+    if (this.isLeaf) return `${pad}[${wrappedLbl}]`;
     const children = this.children.map(c => c.toLabeledBrackets(indent + 1)).join('\n');
-    return `${pad}[${prefix}${lbl}\n${children}\n${pad}]`;
+    return `${pad}[${wrappedLbl}\n${children}\n${pad}]`;
   }
 
   toJSON() {
@@ -613,18 +613,19 @@ function parseBracketNotation(str) {
     if (str[pos] !== '[') return null;
     pos++;
     skipWs();
-    // Check for triangle prefix '.'
-    let isTriangle = false;
-    if (str[pos] === '.') {
-      isTriangle = true;
-      pos++;
-    }
     // Read everything up to the first '[' or ']' as the label
     let label = '';
     while (pos < str.length && str[pos] !== '[' && str[pos] !== ']') {
       label += str[pos++];
     }
     label = label.trim();
+    // Check for \triangle{...} wrapper
+    let isTriangle = false;
+    const triMatch = label.match(/^\\triangle\{(.*)\}$/s);
+    if (triMatch) {
+      isTriangle = true;
+      label = triMatch[1];
+    }
     const node = new TreeNode('', parent);
     node.runs = parseFormattedText(label.replace(/\\\\/g, '\n'));
     if (isTriangle) node.triangle = true;

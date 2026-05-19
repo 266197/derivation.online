@@ -53,13 +53,15 @@ class App {
     this.bracketInput.placeholder =
       '[S\n' +
       '  [NP\n' +
-      '    [Det the]\n' +
-      '    [N cat]]\n' +
+      '    [.the cat]\n' +
+      '  ]\n' +
       '  [VP\n' +
-      '    [V chased]\n' +
+      '    [V\\\\chased]\n' +
       '    [NP\n' +
-      '      [Det the]\n' +
-      '      [N mouse]]]]';
+      '      [.the mouse]\n' +
+      '    ]\n' +
+      '  ]\n' +
+      ']';
 
     this.sidePanel = document.getElementById('side-panel');
 

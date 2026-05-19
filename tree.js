@@ -312,96 +312,14 @@ function runsToPlainText(runs) {
 // Convert runs to LaTeX-style formatted text:
 //   \textbf{bold}  \textit{italic}  ^{sup}  _{sub}  \textsc{sc}  \underline{ul}  \sout{st}
 function runsToFormattedText(runs) {
-  let out = '';
-  for (const r of runs) {
-    let t = r.text;
-    if (r.bold) t = `\\textbf{${t}}`;
-    if (r.italic) t = `\\textit{${t}}`;
-    if (r.sup) t = `^{${t}}`;
-    if (r.sub) t = `_{${t}}`;
-    if (r.smallcaps) t = `\\textsc{${t}}`;
-    if (r.underline) t = `\\underline{${t}}`;
-    if (r.strike) t = `\\sout{${t}}`;
-    out += t;
-  }
-  return out;
+  // Output plain text only — formatting is preserved in the tree data, not in bracket notation
+  return runs.map(r => r.text).join('');
 }
 
-// Parse LaTeX-style formatted text into runs array
+// Parse bracket label text into runs array (plain text only)
 function parseFormattedText(str) {
-  const runs = [];
-  let i = 0;
-  let plain = '';
-
-  function flush() {
-    if (plain) { runs.push({ text: plain }); plain = ''; }
-  }
-
-  // Read brace-delimited content: {text}
-  function readBraced() {
-    if (str[i] !== '{') return null;
-    i++; // skip {
-    let t = '';
-    let depth = 1;
-    while (i < str.length && depth > 0) {
-      if (str[i] === '{') depth++;
-      else if (str[i] === '}') { depth--; if (depth === 0) { i++; break; } }
-      t += str[i++];
-    }
-    return t;
-  }
-
-  // Check if str matches a command at position i, return command name or null
-  function matchCmd() {
-    if (str[i] !== '\\') return null;
-    const cmds = ['textbf', 'textit', 'textsc', 'underline', 'sout'];
-    for (const cmd of cmds) {
-      if (str.substring(i + 1, i + 1 + cmd.length) === cmd && str[i + 1 + cmd.length] === '{') {
-        return cmd;
-      }
-    }
-    return null;
-  }
-
-  while (i < str.length) {
-    // ^{sup}
-    if (str[i] === '^' && str[i + 1] === '{') {
-      flush();
-      i++;
-      const t = readBraced();
-      if (t) runs.push({ text: t, sup: true });
-      continue;
-    }
-    // _{sub}
-    if (str[i] === '_' && str[i + 1] === '{') {
-      flush();
-      i++;
-      const t = readBraced();
-      if (t) runs.push({ text: t, sub: true });
-      continue;
-    }
-    // \command{text}
-    const cmd = matchCmd();
-    if (cmd) {
-      flush();
-      i += 1 + cmd.length; // skip \command
-      const t = readBraced();
-      if (t) {
-        const run = { text: t };
-        if (cmd === 'textbf') run.bold = true;
-        else if (cmd === 'textit') run.italic = true;
-        else if (cmd === 'textsc') run.smallcaps = true;
-        else if (cmd === 'underline') run.underline = true;
-        else if (cmd === 'sout') run.strike = true;
-        runs.push(run);
-      }
-      continue;
-    }
-    // Escaped backslash for newline is handled before this function is called
-    plain += str[i++];
-  }
-  flush();
-  return runs.length > 0 ? runs : [{ text: '' }];
+  // Newline conversion (\\ → \n) is handled before this function is called
+  return str ? [{ text: str }] : [{ text: '' }];
 }
 
 function getArrowLabelRuns(arrow) {

@@ -50,6 +50,16 @@ class App {
     this.wrapper = document.getElementById('canvas-wrapper');
     this.emptyState = document.getElementById('empty-state');
     this.bracketInput = document.getElementById('bracket-input');
+    this.bracketInput.placeholder =
+      '[S\n' +
+      '  [NP\n' +
+      '    [Det the]\n' +
+      '    [N cat]]\n' +
+      '  [VP\n' +
+      '    [V chased]\n' +
+      '    [NP\n' +
+      '      [Det the]\n' +
+      '      [N mouse]]]]';
 
     this.sidePanel = document.getElementById('side-panel');
 
@@ -3240,8 +3250,14 @@ class App {
   }
 
   parseBrackets() {
-    const input = this.bracketInput.value.trim();
-    if (!input) return;
+    let input = this.bracketInput.value.trim();
+    if (!input) {
+      // Use placeholder as default example
+      input = this.bracketInput.placeholder;
+      if (!input) return;
+      this.bracketInput.value = input;
+      this._highlightBrackets();
+    }
     const tree = parseBracketNotation(input);
     if (tree) {
       this.saveState();

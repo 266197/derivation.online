@@ -2604,17 +2604,23 @@ class App {
     collect(this.root);
 
     // Center tree horizontally in the wrapper
+    // Subtract root's own offsetX from positions to compute centering as if
+    // root weren't dragged — root's horizontal drag then persists on top
+    const rootDx = this.root.offsetX || 0;
     let treeMinX = Infinity, treeMaxX = -Infinity;
     allNodes.forEach(n => {
-      treeMinX = Math.min(treeMinX, n.x - n.w / 2);
-      treeMaxX = Math.max(treeMaxX, n.x + n.w / 2);
+      treeMinX = Math.min(treeMinX, (n.x - rootDx) - n.w / 2);
+      treeMaxX = Math.max(treeMaxX, (n.x - rootDx) + n.w / 2);
     });
     const treeW = treeMaxX - treeMinX;
     // Use unzoomed wrapper width so centering offset stays constant across zoom levels
     // (prevents elbow/arrow absolute coordinates from drifting)
     const wrapperW = this.wrapper.clientWidth;
-    const offsetX = Math.max(40, (wrapperW - treeW) / 2) - treeMinX;
-    allNodes.forEach(n => { n.x += offsetX; });
+    const centerShift = Math.max(40, (wrapperW - treeW) / 2) - treeMinX;
+    // centerShift centers the un-dragged tree; rootDx is already in n.x,
+    // so subtract it first to get un-dragged positions, then add centerShift,
+    // then add rootDx back to preserve root's horizontal drag
+    allNodes.forEach(n => { n.x += centerShift; });
 
     const canvasPad = Math.max(60, getLevelGap());
     let maxX = 0, maxY = 0;

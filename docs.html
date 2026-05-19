@@ -151,6 +151,7 @@
 <aside>
   <ul>
     <li><a href="#getting-started">Getting Started</a></li>
+    <li><a href="#bracket-notation">Bracket Notation</a></li>
     <li><a href="#building-trees">Building Trees</a></li>
     <li><a href="#editing-nodes">Editing Nodes</a></li>
     <li><a href="#styling-nodes">Styling Nodes</a></li>
@@ -158,6 +159,7 @@
     <li><a href="#arrows">Arrows</a></li>
     <li><a href="#arrow-labels">Arrow Labels</a></li>
     <li><a href="#color-picker">Custom Colors</a></li>
+    <li><a href="#canvas">Canvas</a></li>
     <li><a href="#exporting">Exporting</a></li>
     <li><a href="#save-load">Save &amp; Load</a></li>
     <li><a href="#shortcuts">Keyboard Shortcuts</a></li>
@@ -173,18 +175,53 @@
 
   <h3>Quick start</h3>
   <ul class="feature-list">
-    <li>Click <strong>Add Root</strong> to create your first node</li>
+    <li>Click <strong>Add Root</strong> in the toolbar to create your first node</li>
     <li>Select a node, then click <strong>Add Child</strong> or press <kbd>Tab</kbd> to add children</li>
     <li>Double-click any node to edit its label</li>
-    <li>Or type bracket notation in the bar at the bottom and press <kbd>Enter</kbd></li>
+    <li>Or open the <strong>bracket notation panel</strong> on the left and type your tree structure, then press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to parse</li>
   </ul>
 
-  <h3>Bracket notation</h3>
-  <p>You can build entire trees instantly by typing labeled bracket notation:</p>
-  <pre>[S [NP [Det the] [N cat]] [VP [V sat]]]</pre>
+  <div class="tip">
+    <strong>Tip:</strong> Clicking <strong>Parse</strong> with an empty bracket panel will load an example tree to get you started.
+  </div>
+</section>
+
+<!-- ─── Bracket Notation ─── -->
+<section id="bracket-notation">
+  <h2>Bracket Notation</h2>
+  <p>The bracket notation panel on the left side lets you type trees using labeled bracket syntax. Click the vertical tab on the left edge to open or close the panel.</p>
+
+  <h3>Basic syntax</h3>
+  <p>Nodes are wrapped in square brackets with the label first, followed by any children:</p>
+  <pre>[S
+  [NP
+    [Det the]
+    [N cat]]
+  [VP
+    [V sat]]]</pre>
+
+  <h3>Special syntax</h3>
+  <ul class="feature-list">
+    <li><strong><code>\triangle{text}</code></strong> — Creates a triangle node (dominance without internal structure). Example: <code>[\triangle{the cat}]</code></li>
+    <li><strong><code>\\</code></strong> — Inserts a new line within a node label</li>
+  </ul>
+
+  <h3>Panel features</h3>
+  <ul class="feature-list">
+    <li><strong>Syntax highlighting</strong> — brackets are color-coded by depth, matching pairs are highlighted when the cursor is adjacent, and unmatched brackets are marked in red</li>
+    <li><strong>Resizable</strong> — drag the right edge of the panel to adjust its width</li>
+    <li><strong>Help button</strong> — click <strong>?</strong> in the panel header for a quick formatting reference</li>
+  </ul>
+
+  <h3>Panel shortcuts</h3>
+  <div class="shortcut-grid">
+    <div class="shortcut-row"><span>Parse tree</span><span class="keys"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span></div>
+    <div class="shortcut-row"><span>Indent</span><span class="keys"><kbd>Tab</kbd></span></div>
+    <div class="shortcut-row"><span>Outdent</span><span class="keys"><kbd>Shift</kbd> + <kbd>Tab</kbd></span></div>
+  </div>
 
   <div class="tip">
-    <strong>Tip:</strong> The bracket bar at the bottom always shows the current tree in bracket notation. You can edit it and re-parse at any time.
+    <strong>Tip:</strong> The bracket panel always reflects the current tree. When you edit the tree visually, the bracket notation updates automatically.
   </div>
 </section>
 
@@ -197,7 +234,7 @@
     <li><strong>Add Triangle</strong> — Adds a terminal child with triangle notation, used to indicate dominance without showing internal structure. Shortcut: <kbd>T</kbd></li>
     <li><strong>Delete</strong> — Removes the selected node and its entire subtree. Shortcut: <kbd>Delete</kbd> or <kbd>Backspace</kbd></li>
     <li><strong>Reorder siblings</strong> — Right-click a node and choose <strong>Move Left</strong> or <strong>Move Right</strong> to reorder among siblings.</li>
-    <li><strong>Drag to reposition</strong> — Click and drag any node to move it (and its children) from the automatic layout position. Hold <kbd>Shift</kbd> while dragging to constrain movement to horizontal or vertical only.</li>
+    <li><strong>Drag to reposition</strong> — Click and drag any node (including the root) to move it and its children freely from the automatic layout position. Hold <kbd>Shift</kbd> while dragging to constrain movement to horizontal or vertical only.</li>
     <li><strong>Reset position</strong> — Right-click a repositioned node and choose <strong>Reset Position</strong> to snap it back to the automatic layout.</li>
   </ul>
 
@@ -231,7 +268,7 @@
 <!-- ─── Styling Nodes ─── -->
 <section id="styling-nodes">
   <h2>Styling Nodes</h2>
-  <p>Select a node to reveal the styling bars below the toolbar.</p>
+  <p>Select a node to reveal the styling options in the toolbar.</p>
 
   <h3>Fill color</h3>
   <ul class="feature-list">
@@ -253,11 +290,12 @@
 <section id="branches">
   <h2>Branches &amp; Triangles</h2>
 
-  <h3>Branch color</h3>
+  <h3>Branch styles</h3>
   <ul class="feature-list">
     <li>Click on a branch line to select it</li>
-    <li>A <strong>Branch Color</strong> bar appears with preset swatches and a custom color picker</li>
-    <li>Each branch can have an independent color</li>
+    <li>Choose between <strong>Solid</strong>, <strong>Dashed</strong>, or <strong>Dotted</strong> line styles</li>
+    <li>Pick a <strong>color</strong> from preset swatches or the custom color picker</li>
+    <li>Each branch can have an independent style and color</li>
   </ul>
 
   <h3>Triangle fill</h3>
@@ -292,6 +330,14 @@
   <ul class="feature-list">
     <li><strong>Solid</strong>, <strong>Dashed</strong>, or <strong>Dotted</strong> line patterns</li>
     <li><strong>Color</strong> — pick from presets or use the custom picker</li>
+  </ul>
+
+  <h3>Arrowhead toggles</h3>
+  <ul class="feature-list">
+    <li>Select an arrow to see two arrowhead toggle buttons in the toolbar</li>
+    <li><strong>Head at start</strong> — adds an arrowhead at the source end</li>
+    <li><strong>Head at end</strong> — controls the arrowhead at the target end (on by default)</li>
+    <li>Removing both heads creates a plain line that looks like a branch — useful for <strong>multidominance</strong> structures where a node has two mother nodes</li>
   </ul>
 
   <h3>Anchor positioning</h3>
@@ -341,10 +387,20 @@
   </ul>
 </section>
 
+<!-- ─── Canvas ─── -->
+<section id="canvas">
+  <h2>Canvas</h2>
+  <ul class="feature-list">
+    <li><strong>White canvas</strong> — click the grid icon in the toolbar to toggle between the dotted grid background and a clean white canvas</li>
+    <li><strong>Align bottom</strong> — click the align-bottom icon in the toolbar to align all leaf nodes to the same vertical level</li>
+    <li><strong>Zoom</strong> — use <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>Ctrl</kbd> + <kbd>-</kbd> or the zoom controls in the bottom-right corner. Double-click the zoom percentage to reset to 100%.</li>
+  </ul>
+</section>
+
 <!-- ─── Exporting ─── -->
 <section id="exporting">
   <h2>Exporting</h2>
-  <p>Click the <strong>Export</strong> dropdown in the toolbar to choose a format.</p>
+  <p>Open the <strong>File</strong> menu and choose an export format.</p>
 
   <h3>PNG</h3>
   <ul class="feature-list">

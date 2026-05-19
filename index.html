@@ -324,6 +324,10 @@ button.danger:hover { background: #fdf5f5; }
     radial-gradient(circle, #d5cec4 0.8px, transparent 0.8px);
   background-size: 20px 20px;
 }
+.canvas-wrapper.white-canvas {
+  background-color: #fff;
+  background-image: none;
+}
 
 svg#tree-canvas {
   min-width: 100%;
@@ -1495,6 +1499,11 @@ button.active, .tb-btn.active {
   </div>
 
   <span class="tb-sep"></span>
+
+  <!-- White canvas toggle -->
+  <button class="tb-btn" id="btn-white-canvas" onclick="app.toggleWhiteCanvas()" title="White canvas">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="12" height="12" rx="1.5"/><circle cx="5" cy="5" r="0.7" fill="currentColor" stroke="none"/><circle cx="8" cy="5" r="0.7" fill="currentColor" stroke="none"/><circle cx="11" cy="5" r="0.7" fill="currentColor" stroke="none"/><circle cx="5" cy="8" r="0.7" fill="currentColor" stroke="none"/><circle cx="8" cy="8" r="0.7" fill="currentColor" stroke="none"/><circle cx="11" cy="8" r="0.7" fill="currentColor" stroke="none"/><circle cx="5" cy="11" r="0.7" fill="currentColor" stroke="none"/><circle cx="8" cy="11" r="0.7" fill="currentColor" stroke="none"/><circle cx="11" cy="11" r="0.7" fill="currentColor" stroke="none"/></svg>
+  </button>
 
   <!-- Align bottom toggle -->
   <button class="tb-btn" id="btn-align-bottom" onclick="app.toggleAlignBottom(!app.alignBottom)" title="Align bottom">

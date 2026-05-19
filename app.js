@@ -1273,6 +1273,13 @@ class App {
     document.getElementById('format-bar').style.display = 'none';
   }
 
+  toggleWhiteCanvas() {
+    const wrapper = document.getElementById('canvas-wrapper');
+    wrapper.classList.toggle('white-canvas');
+    const btn = document.getElementById('btn-white-canvas');
+    btn.classList.toggle('on', wrapper.classList.contains('white-canvas'));
+  }
+
   toggleAlignBottom(on) {
     if (this.root) this.saveState();
     this.alignBottom = on;

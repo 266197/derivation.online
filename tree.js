@@ -456,6 +456,7 @@ class TreeNode {
     this.borderColor = null;
     this.fillColor = null;
     this.triangleFillColor = null;
+    this.align = null;  // null = 'center', 'left', 'right'
     this.x = 0;
     this.y = 0;
     this.w = 0;
@@ -497,6 +498,7 @@ class TreeNode {
     if (this.borderColor) o.borderColor = this.borderColor;
     if (this.fillColor) o.fillColor = this.fillColor;
     if (this.triangleFillColor) o.triangleFillColor = this.triangleFillColor;
+    if (this.align) o.align = this.align;
     if (this.offsetX) o.offsetX = this.offsetX;
     if (this.offsetY) o.offsetY = this.offsetY;
     if (this.branchParentAnchor) o.branchParentAnchor = this.branchParentAnchor;
@@ -514,6 +516,7 @@ class TreeNode {
     n.borderColor = obj.borderColor || null;
     n.fillColor = obj.fillColor || null;
     n.triangleFillColor = obj.triangleFillColor || null;
+    n.align = obj.align || null;
     n.offsetX = obj.offsetX || 0;
     n.offsetY = obj.offsetY || 0;
     n.branchParentAnchor = obj.branchParentAnchor || null;
@@ -695,11 +698,20 @@ function applyOffsets(root) {
 
 // --- SVG helpers ---
 
-function createSvgRunSpans(textEl, runs, cx, cy, nodeH) {
+function createSvgRunSpans(textEl, runs, cx, cy, nodeH, align, nodeW) {
   const lines = splitRunsIntoLines(runs);
   const lineH = getLineHeight();
   const totalTextH = lines.length * lineH;
   const startY = cy - totalTextH / 2 + lineH / 2;
+
+  // Set text-anchor based on alignment (inline style to override CSS)
+  if (align === 'left') textEl.style.textAnchor = 'start';
+  else if (align === 'right') textEl.style.textAnchor = 'end';
+
+  // Compute x position based on alignment
+  const xPos = align === 'left' ? cx - (nodeW || 0) / 2 + 4
+             : align === 'right' ? cx + (nodeW || 0) / 2 - 4
+             : cx;
 
   lines.forEach((lineRuns, li) => {
     if (lineRuns.length === 0) return;
@@ -709,7 +721,7 @@ function createSvgRunSpans(textEl, runs, cx, cy, nodeH) {
       tspan.textContent = r.text;
       // first tspan of each line sets x and dy
       if (ri === 0) {
-        tspan.setAttribute('x', cx);
+        tspan.setAttribute('x', xPos);
         if (li === 0) {
           tspan.setAttribute('y', startY);
         } else {

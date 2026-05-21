@@ -856,6 +856,7 @@ class App {
     document.getElementById('branch-format-bar').style.display = 'none';
     document.getElementById('node-fill-bar').style.display = 'none';
     document.getElementById('node-border-bar').style.display = 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
     document.getElementById('btn-delete-arrow').style.display = 'none';
     this.hideFormatBar();
     this.updateArrowFormatBar();
@@ -886,10 +887,12 @@ class App {
         this._nodeFormatTarget = childId;
         document.getElementById('node-fill-bar').style.display = 'flex';
         document.getElementById('node-border-bar').style.display = 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
       } else {
         this._nodeFormatTarget = null;
         document.getElementById('node-fill-bar').style.display = 'none';
         document.getElementById('node-border-bar').style.display = 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
       }
     } else {
       this._nodeFormatTarget = null;
@@ -925,16 +928,19 @@ class App {
         this._nodeFormatTarget = childId;
         document.getElementById('node-fill-bar').style.display = 'flex';
         document.getElementById('node-border-bar').style.display = 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
       } else {
         this._nodeFormatTarget = null;
         document.getElementById('node-fill-bar').style.display = 'none';
         document.getElementById('node-border-bar').style.display = 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
       }
     } else {
       this.selectedBranchId = null;
       this._nodeFormatTarget = null;
       document.getElementById('node-fill-bar').style.display = 'none';
       document.getElementById('node-border-bar').style.display = 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
     }
     const hasSelection = this.selectedBranchIds.size > 0;
     document.getElementById('branch-format-bar').style.display = hasSelection ? 'flex' : 'none';
@@ -1087,6 +1093,52 @@ class App {
     else if (this._nodeFormatTarget) this.selectBranch(this._nodeFormatTarget);
   }
 
+  setNodeAlign(align) {
+    // align: 'left', 'center', 'right' — null means center
+    const val = align === 'center' ? null : align;
+    if (this.selectedIds.size > 1) {
+      if (!this.root) return;
+      this.saveState();
+      this.selectedIds.forEach(id => {
+        const node = this.findNode(id);
+        if (node) node.align = val;
+      });
+      this.render();
+      this._reapplyMultiSelect();
+      this._updateAlignButtons();
+      return;
+    }
+    const targetId = this.selectedId || this.editingNode;
+    if (!targetId || !this.root) return;
+    const node = this.findNode(targetId);
+    if (!node) return;
+    this.saveState();
+    node.align = val;
+    // Update inline edit alignment if currently editing
+    const editDiv = document.querySelector('.inline-edit');
+    if (editDiv) {
+      editDiv.style.textAlign = val || 'center';
+    }
+    this.render();
+    if (this.selectedId) this.select(this.selectedId);
+    this._updateAlignButtons();
+  }
+
+  _updateAlignButtons() {
+    const targetId = this.selectedId || this.editingNode;
+    const node = targetId ? this.findNode(targetId) : null;
+    const align = node ? (node.align || 'center') : 'center';
+    // Update both format-bar and node-bar align buttons
+    ['fmt-align-', 'nfmt-align-'].forEach(prefix => {
+      const l = document.getElementById(prefix + 'left');
+      const c = document.getElementById(prefix + 'center');
+      const r = document.getElementById(prefix + 'right');
+      if (l) l.classList.toggle('on', align === 'left');
+      if (c) c.classList.toggle('on', align === 'center');
+      if (r) r.classList.toggle('on', align === 'right');
+    });
+  }
+
   buildArrowColorSwatches() {
     const container = document.getElementById('arrow-color-swatches');
     COLORS.forEach(c => {
@@ -1231,6 +1283,7 @@ class App {
     document.getElementById('branch-format-bar').style.display = 'none';
     document.getElementById('node-fill-bar').style.display = 'none';
     document.getElementById('node-border-bar').style.display = 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
   }
 
   // Silently commit any open editor without creating an undo entry
@@ -1404,6 +1457,7 @@ class App {
     document.getElementById('branch-format-bar').style.display = 'none';
     document.getElementById('node-fill-bar').style.display = 'none';
     document.getElementById('node-border-bar').style.display = 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
     this.hideFormatBar();
     this.updateArrowFormatBar();
     const btn = document.getElementById('btn-delete-arrow');
@@ -1439,11 +1493,13 @@ class App {
     div.innerHTML = runsToHTML(node.runs);
 
     const z = this.zoomLevel;
-    div.style.left = ((node.x - node.w / 2 - 6) * z) + 'px';
-    div.style.top = ((node.y - 3) * z) + 'px';
-    div.style.minWidth = Math.max((node.w + 24) * z, 60) + 'px';
-    div.style.minHeight = ((node.h + 6) * z) + 'px';
+    const padX = 8, padY = 4, border = 2; // must match .inline-edit CSS
+    div.style.left = ((node.x - node.w / 2) * z - padX - border) + 'px';
+    div.style.top = ((node.y) * z - padY - border) + 'px';
+    div.style.minWidth = (node.w * z) + 'px';
+    div.style.minHeight = (node.h * z) + 'px';
     div.style.fontSize = (getFontSize() * z) + 'px';
+    div.style.textAlign = node.align || 'center';
 
     div.addEventListener('keydown', (e) => {
       // Shift+Enter or just Enter inserts a new line; plain Enter without shift commits
@@ -1464,6 +1520,10 @@ class App {
     });
 
     this.showFormatBar();
+    document.getElementById('color-swatches').style.display = '';
+    document.getElementById('node-fill-bar').style.display = 'none';
+    document.getElementById('node-border-bar').style.display = 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
     this.wrapper.appendChild(div);
     div.focus();
     const range = document.createRange();
@@ -1578,9 +1638,26 @@ class App {
   execFmt(command) {
     const div = document.querySelector('.inline-edit');
     if (!div) {
-      if (this.selectedId) {
-        this.startEditing(this.selectedId);
-        setTimeout(() => this.execFmt(command), 10);
+      // Apply to entire node(s) when selected but not editing
+      const ids = this.selectedIds.size > 0 ? [...this.selectedIds] : this.selectedId ? [this.selectedId] : [];
+      if (ids.length > 0) {
+        const fmtKey = command === 'bold' ? 'bold'
+                     : command === 'italic' ? 'italic'
+                     : command === 'underline' ? 'underline'
+                     : command === 'strikeThrough' ? 'strike'
+                     : command === 'subscript' ? 'sub'
+                     : command === 'superscript' ? 'sup'
+                     : command === 'smallcaps' ? 'smallcaps'
+                     : null;
+        if (!fmtKey) return;
+        this.saveState();
+        // Toggle: if all runs of all nodes have it, remove; otherwise add
+        const nodes = ids.map(id => this.findNode(id)).filter(Boolean);
+        const allHave = nodes.every(n => n.runs.every(r => r[fmtKey]));
+        nodes.forEach(n => n.runs.forEach(r => { r[fmtKey] = !allHave; }));
+        this.render();
+        if (this.selectedIds.size > 1) this._reapplyMultiSelect();
+        else if (this.selectedId) this.select(this.selectedId);
       }
       return;
     }
@@ -1661,6 +1738,7 @@ class App {
 
   showFormatBar() {
     document.getElementById('format-bar').style.display = 'flex';
+    this._updateAlignButtons();
   }
 
   hideFormatBar() {
@@ -2829,10 +2907,17 @@ class App {
     document.getElementById('branch-format-bar').style.display = 'none';
     document.getElementById('node-fill-bar').style.display = id ? 'flex' : 'none';
     document.getElementById('node-border-bar').style.display = id ? 'flex' : 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
+    if (id && !this.editingNode) {
+      this.showFormatBar();
+      document.getElementById('color-swatches').style.display = 'none';
+    } else if (!this.editingNode && this.editingArrowIdx == null) {
+      this.hideFormatBar();
+    }
+    if (id) this._updateAlignButtons();
     this.hideContextMenu();
     this.updateToolbar();
     this.updateArrowFormatBar();
-    if (!this.editingNode && this.editingArrowIdx == null) this.hideFormatBar();
     this.svg.querySelectorAll('.node-group').forEach(g => {
       g.classList.toggle('selected', this.selectedIds.has(+g.dataset.id));
     });
@@ -2848,8 +2933,15 @@ class App {
 
   _reapplyMultiSelect() {
     const hasSelection = this.selectedIds.size > 0;
+    if (hasSelection) {
+      this.showFormatBar();
+      document.getElementById('color-swatches').style.display = 'none';
+    } else {
+      this.hideFormatBar();
+    }
     document.getElementById('node-fill-bar').style.display = hasSelection ? 'flex' : 'none';
     document.getElementById('node-border-bar').style.display = hasSelection ? 'flex' : 'none';
+    document.getElementById('node-align-bar').style.display = 'none';
     this.svg.querySelectorAll('.node-group').forEach(g => {
       g.classList.toggle('selected', this.selectedIds.has(+g.dataset.id));
     });
@@ -2889,6 +2981,7 @@ class App {
     const hasSelection = this.selectedIds.size > 0;
     document.getElementById('node-fill-bar').style.display = hasSelection ? 'flex' : 'none';
     document.getElementById('node-border-bar').style.display = hasSelection ? 'flex' : 'none';
+    document.getElementById('node-align-bar').style.display = hasSelection ? 'flex' : 'none';
     this.hideContextMenu();
     this.updateToolbar();
     this.updateArrowFormatBar();
@@ -3232,7 +3325,7 @@ class App {
 
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('class', 'node-label');
-      createSvgRunSpans(text, n.runs, n.x, n.y + n.h / 2, n.h);
+      createSvgRunSpans(text, n.runs, n.x, n.y + n.h / 2, n.h, n.align, n.w);
 
       g.appendChild(rect);
       g.appendChild(text);

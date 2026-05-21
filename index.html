@@ -1084,6 +1084,117 @@ button.active, .tb-btn.active {
   background: conic-gradient(#f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
 }
 
+/* ── Tutorial ── */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 998;
+  pointer-events: none;
+}
+.tutorial-spotlight {
+  position: fixed;
+  z-index: 999;
+  border-radius: 6px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+.tutorial-spotlight.waiting {
+  animation: tutorial-pulse 1.5s ease infinite;
+}
+@keyframes tutorial-pulse {
+  0%, 100% { box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 0 0 0 rgba(139,115,85,0.3); }
+  50% { box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 0 0 6px rgba(139,115,85,0.15); }
+}
+.tutorial-spotlight.hidden {
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: none;
+}
+.tutorial-panel {
+  position: fixed;
+  z-index: 1001;
+  background: #fffefa;
+  border: 1px solid #e0dcd4;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(80,60,30,0.18);
+  padding: 18px 22px;
+  max-width: 340px;
+  width: 90vw;
+  pointer-events: auto;
+  animation: modal-in 0.15s ease-out;
+}
+.tutorial-progress-text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #998e80;
+}
+.tutorial-progress-bar {
+  height: 3px;
+  background: #e8e4dc;
+  border-radius: 2px;
+  margin-top: 6px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.tutorial-progress-fill {
+  height: 100%;
+  background: #8b7355;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.tutorial-content h3 {
+  font-family: 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #3d3530;
+  margin-bottom: 6px;
+}
+.tutorial-content p {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  color: #6b5d4f;
+  line-height: 1.5;
+  margin-bottom: 0;
+}
+.tutorial-content .tutorial-check {
+  color: #16a34a;
+  font-weight: 600;
+  margin-top: 8px;
+  font-size: 12px;
+  font-family: -apple-system, sans-serif;
+}
+.tutorial-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+}
+.tutorial-skip {
+  font-size: 11px;
+  color: #998e80;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-family: -apple-system, sans-serif;
+}
+.tutorial-skip:hover { color: #6b5d4f; background: #f0ebe3; }
+.tutorial-next {
+  padding: 5px 16px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  background: #4a4540;
+  color: #fff;
+  cursor: pointer;
+  font-family: -apple-system, sans-serif;
+}
+.tutorial-next:hover { background: #3d3530; }
+
 /* Shortcuts help modal */
 /* Export dropdown */
 @keyframes dropdown-in {
@@ -1449,6 +1560,7 @@ button.active, .tb-btn.active {
   <a href="docs.html" target="_blank" class="title-bar-link">Docs</a>
   <button onclick="document.getElementById('feedback-overlay').style.display='flex'" class="title-bar-btn">Feedback</button>
   <button onclick="document.getElementById('donate-overlay').style.display='flex'" class="title-bar-btn">Support</button>
+  <button onclick="app.tutorial.start()" class="title-bar-btn" id="btn-tutorial">Tutorial</button>
 </div>
 
 <header>
@@ -1769,6 +1881,22 @@ button.active, .tb-btn.active {
   };
 })();
 </script>
+<!-- Tutorial overlay -->
+<div id="tutorial-overlay" style="display:none">
+  <div class="tutorial-spotlight hidden" id="tutorial-spotlight"></div>
+  <div class="tutorial-panel" id="tutorial-panel">
+    <div class="tutorial-progress">
+      <span class="tutorial-progress-text" id="tutorial-progress-text"></span>
+      <div class="tutorial-progress-bar"><div class="tutorial-progress-fill" id="tutorial-progress-fill"></div></div>
+    </div>
+    <div class="tutorial-content" id="tutorial-content"></div>
+    <div class="tutorial-footer">
+      <button class="tutorial-skip" id="tutorial-skip">Skip Tutorial</button>
+      <button class="tutorial-next" id="tutorial-next" style="display:none">Next</button>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -17,6 +17,394 @@ import {
   getAnchorPos, getAnchorDir,
 } from './tree.js';
 
+// ── Tutorial ──
+
+class Tutorial {
+  constructor(app) {
+    this.app = app;
+    this.active = false;
+    this.stepIndex = 0;
+    this._savedState = null;
+    this._pollTimer = null;
+    this._completed = false; // current step completed?
+
+    this.overlay = document.getElementById('tutorial-overlay');
+    this.spotlight = document.getElementById('tutorial-spotlight');
+    this.panel = document.getElementById('tutorial-panel');
+    this.contentEl = document.getElementById('tutorial-content');
+    this.progressText = document.getElementById('tutorial-progress-text');
+    this.progressFill = document.getElementById('tutorial-progress-fill');
+    this.nextBtn = document.getElementById('tutorial-next');
+    this.skipBtn = document.getElementById('tutorial-skip');
+
+    this.nextBtn.addEventListener('click', () => this.next());
+    this.skipBtn.addEventListener('click', () => this.end());
+
+    this._onResize = () => { if (this.active) this._positionAll(); };
+    this._onScroll = () => { if (this.active) this._positionAll(); };
+
+    this.steps = this._defineSteps();
+  }
+
+  start() {
+    if (this.active) return;
+    // Save current user state
+    this._savedState = this.app._getProjectData();
+    // Clear canvas for tutorial
+    this.app.root = null;
+    this.app.arrows = [];
+    this.app.selectedId = null;
+    this.app.selectedArrowIdx = null;
+    this.app.undoStack = [];
+    this.app.redoStack = [];
+    this.app.render();
+
+    // Ensure bracket panel is collapsed for a clean start
+    const panel = document.getElementById('side-panel');
+    if (!panel.classList.contains('collapsed')) {
+      this.app.toggleSidePanel();
+    }
+
+    this.active = true;
+    this.stepIndex = 0;
+    this.overlay.style.display = '';
+    window.addEventListener('resize', this._onResize);
+    document.getElementById('canvas-wrapper').addEventListener('scroll', this._onScroll, true);
+    this._goToStep(0);
+  }
+
+  end() {
+    this.active = false;
+    this._stopPolling();
+    this.overlay.style.display = 'none';
+    this.spotlight.classList.add('hidden');
+    window.removeEventListener('resize', this._onResize);
+    document.getElementById('canvas-wrapper').removeEventListener('scroll', this._onScroll, true);
+
+    // Restore user's tree
+    if (this._savedState) {
+      this.app._loadProjectData(this._savedState);
+      this._savedState = null;
+    }
+    this.app.render();
+    localStorage.setItem('derivation-tutorial-seen', '1');
+  }
+
+  next() {
+    if (this.stepIndex < this.steps.length - 1) {
+      this._goToStep(this.stepIndex + 1);
+    } else {
+      this.end();
+    }
+  }
+
+  _goToStep(idx) {
+    this.stepIndex = idx;
+    this._completed = false;
+    this._stopPolling();
+
+    // Clean up any open state from previous step
+    if (this.app.editingNode) this.app.commitEdit();
+    if (this.app.editingArrowIdx !== null) this.app.commitArrowEdit();
+    if (this.app.arrowMode) this.app.toggleArrowMode();
+    // Deselect all to start fresh
+    this.app.deselectAll();
+    this.app.render();
+
+    const step = this.steps[idx];
+    const total = this.steps.length;
+
+    // Progress
+    this.progressText.textContent = `Step ${idx + 1} of ${total}`;
+    this.progressFill.style.width = `${((idx + 1) / total) * 100}%`;
+
+    // Content
+    this.contentEl.innerHTML =
+      `<h3>${step.title}</h3><p>${step.text}</p>`;
+
+    // Next button
+    if (step.manualAdvance) {
+      this.nextBtn.style.display = '';
+      this.nextBtn.textContent = idx === total - 1 ? 'Finish' : 'Next';
+    } else {
+      this.nextBtn.style.display = 'none';
+    }
+
+    // Setup hook
+    if (step.setup) step.setup(this.app);
+
+    // Spotlight
+    this._positionAll();
+
+    // Start polling for completion
+    if (step.check && !step.manualAdvance) {
+      this._startPolling();
+    }
+  }
+
+  _positionAll() {
+    const step = this.steps[this.stepIndex];
+    const targetEl = step.target ? step.target() : null;
+
+    if (targetEl) {
+      const r = targetEl instanceof Element ? targetEl.getBoundingClientRect() : targetEl;
+      const pad = 4;
+      this.spotlight.style.left = (r.left - pad) + 'px';
+      this.spotlight.style.top = (r.top - pad) + 'px';
+      this.spotlight.style.width = (r.width + pad * 2) + 'px';
+      this.spotlight.style.height = (r.height + pad * 2) + 'px';
+      this.spotlight.classList.remove('hidden');
+      this.spotlight.classList.toggle('waiting', !this._completed);
+      if (step.panelPosition === 'bottom-right') {
+        this._positionPanelCorner();
+      } else {
+        this._positionPanelNear(r);
+      }
+    } else {
+      // Center panel, no spotlight
+      this.spotlight.classList.add('hidden');
+      this.panel.style.left = '50%';
+      this.panel.style.top = '50%';
+      this.panel.style.transform = 'translate(-50%, -50%)';
+    }
+  }
+
+  _positionPanelNear(targetRect) {
+    this.panel.style.transform = '';
+    const pw = this.panel.offsetWidth || 320;
+    const ph = this.panel.offsetHeight || 200;
+    const gap = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left, top;
+
+    // Try below
+    if (targetRect.bottom + gap + ph < vh) {
+      top = targetRect.bottom + gap;
+      left = targetRect.left + targetRect.width / 2 - pw / 2;
+    }
+    // Try above
+    else if (targetRect.top - gap - ph > 0) {
+      top = targetRect.top - gap - ph;
+      left = targetRect.left + targetRect.width / 2 - pw / 2;
+    }
+    // Try right
+    else if (targetRect.right + gap + pw < vw) {
+      left = targetRect.right + gap;
+      top = targetRect.top + targetRect.height / 2 - ph / 2;
+    }
+    // Try left
+    else {
+      left = targetRect.left - gap - pw;
+      top = targetRect.top + targetRect.height / 2 - ph / 2;
+    }
+
+    // Clamp to viewport
+    left = Math.max(12, Math.min(left, vw - pw - 12));
+    top = Math.max(12, Math.min(top, vh - ph - 12));
+
+    this.panel.style.left = left + 'px';
+    this.panel.style.top = top + 'px';
+  }
+
+  _positionPanelCorner() {
+    this.panel.style.transform = '';
+    const pw = this.panel.offsetWidth || 320;
+    const ph = this.panel.offsetHeight || 200;
+    this.panel.style.left = (window.innerWidth - pw - 16) + 'px';
+    this.panel.style.top = (window.innerHeight - ph - 16) + 'px';
+  }
+
+  _startPolling() {
+    this._pollTimer = setInterval(() => this._checkStep(), 200);
+  }
+
+  _stopPolling() {
+    if (this._pollTimer) { clearInterval(this._pollTimer); this._pollTimer = null; }
+  }
+
+  _checkStep() {
+    const step = this.steps[this.stepIndex];
+    if (!step.check || this._completed) return;
+
+    if (step.check(this.app)) {
+      this._completed = true;
+      this._stopPolling();
+      this.spotlight.classList.remove('waiting');
+
+      // Run step-specific cleanup
+      if (step.onComplete) step.onComplete(this.app);
+
+      // Show checkmark
+      const checkEl = document.createElement('div');
+      checkEl.className = 'tutorial-check';
+      checkEl.textContent = '✔ Done!';
+      this.contentEl.appendChild(checkEl);
+
+      // Show Next button
+      this.nextBtn.style.display = '';
+      this.nextBtn.textContent = this.stepIndex === this.steps.length - 1 ? 'Finish' : 'Next';
+    }
+  }
+
+  _defineSteps() {
+    return [
+      // 0: Welcome
+      {
+        title: 'Welcome to derivation',
+        text: 'This quick tutorial will walk you through the main features. You\'ll build a syntax tree and learn about arrows, brackets, and more.',
+        target: null,
+        check: null,
+        manualAdvance: true,
+      },
+      // 1: Add Root
+      {
+        title: 'Add a Root Node',
+        text: 'Click the <b>Add Root</b> button in the toolbar to create the root of your tree.',
+        target: () => document.getElementById('btn-add-root'),
+        check: (app) => app.root !== null,
+      },
+      // 2: Add Child
+      {
+        title: 'Add a Child',
+        text: 'With the root selected, click <b>Add Child</b> or press <kbd>Tab</kbd> to add a child node.',
+        target: () => document.getElementById('btn-add-child'),
+        setup: (app) => {
+          if (app.root) app.select(app.root.id);
+        },
+        check: (app) => app.root && app.root.children.length > 0,
+      },
+      // 3: Add Triangle
+      {
+        title: 'Add a Triangle',
+        text: 'Select a leaf node, then click <b>Add Triangle</b> to create a triangle terminal.',
+        target: () => document.getElementById('btn-add-triangle'),
+        setup: (app) => {
+          if (app.root) {
+            const leaves = [];
+            function findLeaves(n) { if (n.isLeaf) leaves.push(n); n.children.forEach(findLeaves); }
+            findLeaves(app.root);
+            if (leaves.length) app.select(leaves[0].id);
+          }
+        },
+        check: (app) => {
+          if (!app.root) return false;
+          let found = false;
+          function walk(n) { if (n.triangle) found = true; n.children.forEach(walk); }
+          walk(app.root);
+          return found;
+        },
+      },
+      // 4: Edit Label
+      {
+        title: 'Edit a Label',
+        text: 'Double-click any node to edit its label. Try changing the root\'s text.',
+        target: () => {
+          if (!this.app.root) return null;
+          return this.app.svg.querySelector(`.node-group[data-id="${this.app.root.id}"]`);
+        },
+        panelPosition: 'bottom-right',
+        check: (app) => !!document.querySelector('.inline-edit'),
+      },
+      // 5: Open Bracket Panel
+      {
+        title: 'Open the Bracket Panel',
+        text: 'Click the <b>Brackets</b> tab on the left edge to open the bracket notation panel.',
+        target: () => document.getElementById('side-panel-toggle'),
+        check: () => !document.getElementById('side-panel').classList.contains('collapsed'),
+      },
+      // 6: Parse Brackets
+      {
+        title: 'Parse a Tree',
+        text: 'We\'ve added a sample tree. Click <b>Parse</b> to build it from bracket notation.',
+        target: () => document.querySelector('.bracket-actions button'),
+        setup: (app) => {
+          app.bracketInput.value = '[S\n  [NP\n    [\\triangle{the cat}]\n  ]\n  [VP\n    [V\\\\chased]\n    [NP\n      [\\triangle{the mouse}]\n    ]\n  ]\n]';
+          app._highlightBrackets();
+        },
+        check: (app) => app.root && app.root.children.length >= 2,
+      },
+      // 7: Node Formatting
+      {
+        title: 'Node Formatting',
+        text: 'Selecting a node reveals <b>fill</b> and <b>border</b> color options in the toolbar. <b>Double-click</b> a node to edit its text — this opens the text format bar with <b>Bold</b>, <b>Italic</b>, <b>Underline</b>, <b>Strikethrough</b>, <b>Subscript</b>, <b>Superscript</b>, <b>Small Caps</b>, and <b>text color</b> swatches.',
+        panelPosition: 'bottom-right',
+        target: () => {
+          const a = document.getElementById('node-fill-bar');
+          const b = document.getElementById('node-border-bar');
+          if (!a || a.style.display === 'none') return null;
+          const ra = a.getBoundingClientRect();
+          const rb = b && b.style.display !== 'none' ? b.getBoundingClientRect() : ra;
+          return {
+            left: Math.min(ra.left, rb.left),
+            top: Math.min(ra.top, rb.top),
+            right: Math.max(ra.right, rb.right),
+            bottom: Math.max(ra.bottom, rb.bottom),
+            width: Math.max(ra.right, rb.right) - Math.min(ra.left, rb.left),
+            height: Math.max(ra.bottom, rb.bottom) - Math.min(ra.top, rb.top),
+          };
+        },
+        setup: (app) => {
+          if (app.root) app.select(app.root.id);
+        },
+        check: null,
+        manualAdvance: true,
+      },
+      // 8: Branch Formatting
+      {
+        title: 'Branch Formatting',
+        text: 'Click on a <b>branch line</b> between two nodes. The toolbar shows branch options: <b>Solid</b>, <b>Dashed</b>, or <b>Dotted</b> styles, and <b>branch color</b> swatches. For triangles, you can also set a <b>fill color</b>.',
+        panelPosition: 'bottom-right',
+        target: () => document.getElementById('branch-format-bar'),
+        setup: (app) => {
+          // Select the first branch
+          if (app.root && app.root.children.length > 0) {
+            app.selectBranch(app.root.children[0].id);
+          }
+        },
+        check: null,
+        manualAdvance: true,
+      },
+      // 9: Create Arrow
+      {
+        title: 'Draw an Arrow',
+        text: 'Click <b>Add Arrow</b>, then click a source node followed by a target node to draw a movement arrow.',
+        target: () => document.getElementById('btn-arrow'),
+        check: (app) => app.arrows.length > 0,
+      },
+      // 10: Arrow Formatting
+      {
+        title: 'Arrow Formatting',
+        text: 'Click on an <b>arrow</b> to select it. The toolbar shows: <b>Curve</b>, <b>Straight</b>, or <b>Elbow</b> shapes; <b>Solid</b>, <b>Dashed</b>, or <b>Dotted</b> line styles; <b>arrowhead toggles</b> for start/end (remove both for multidominance); and <b>color</b> swatches.',
+        panelPosition: 'bottom-right',
+        target: () => document.getElementById('arrow-format-bar'),
+        setup: (app) => {
+          if (app.arrows.length > 0) app.selectArrow(0);
+        },
+        check: null,
+        manualAdvance: true,
+      },
+      // 11: Export Info
+      {
+        title: 'Export Your Tree',
+        text: 'Open the <b>File</b> menu to export your tree as PNG or SVG, save your project, or load an existing one.',
+        target: () => document.querySelector('.tb-dropdown-wrap button'),
+        check: null,
+        manualAdvance: true,
+      },
+      // 12: Completion
+      {
+        title: 'You\'re all set!',
+        text: 'You now know the key features of derivation. Press <kbd>?</kbd> for keyboard shortcuts, or visit the <b>Docs</b> page for the full guide. Happy diagramming!',
+        target: null,
+        check: null,
+        manualAdvance: true,
+      },
+    ];
+  }
+}
+
 function branchDashArray(style) {
   if (style === 'dashed') return '6 4';
   if (style === 'dotted') return '1.5 3';
@@ -352,6 +740,12 @@ class App {
     this._restoreFromURL().then(restored => {
       if (restored) this.render();
     });
+
+    // Tutorial
+    this.tutorial = new Tutorial(this);
+    if (!localStorage.getItem('derivation-tutorial-seen')) {
+      setTimeout(() => this.tutorial.start(), 600);
+    }
   }
 
   _initFontSelectors() {

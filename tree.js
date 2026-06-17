@@ -354,13 +354,28 @@ function runsToHTML(runs) {
     if (r.underline) t = `<u>${t}</u>`;
     if (r.strike) t = `<s>${t}</s>`;
     if (r.smallcaps) t = `<span style="font-variant:small-caps">${t}</span>`;
-    if (r.color && r.color !== '#333333') t = `<span style="color:${r.color}">${t}</span>`;
+    const c = safeColor(r.color);
+    if (c && c !== '#333333') t = `<span style="color:${c}">${t}</span>`;
     return t;
   }).join('');
 }
 
 function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Validate a color string before it is interpolated into HTML/CSS.
+// Accepts hex (#rgb/#rgba/#rrggbb/#rrggbbaa), rgb()/rgba(), hsl()/hsla(),
+// and plain CSS color keywords. Returns '' for anything else so untrusted
+// data (loaded files, shared links, pasted markup) cannot inject markup.
+function safeColor(c) {
+  if (!c || typeof c !== 'string') return '';
+  const s = c.trim();
+  if (/^#[0-9a-fA-F]{3,8}$/.test(s)) return s;
+  if (/^rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*(,\s*[\d.]+\s*)?\)$/.test(s)) return s;
+  if (/^hsla?\(\s*[\d.]+\s*,\s*[\d.]+%\s*,\s*[\d.]+%\s*(,\s*[\d.]+\s*)?\)$/.test(s)) return s;
+  if (/^[a-zA-Z]+$/.test(s)) return s; // CSS color keyword
+  return '';
 }
 
 function htmlToRuns(el) {
@@ -385,13 +400,13 @@ function htmlToRuns(el) {
       return;
     }
     if (node.style && node.style.color) {
-      f.color = rgbToHex(node.style.color);
+      f.color = safeColor(rgbToHex(node.style.color));
     }
     if (node.style && node.style.fontVariant === 'small-caps') {
       f.smallcaps = true;
     }
     if (tag === 'span' || tag === 'font') {
-      const c = node.getAttribute('color');
+      const c = safeColor(node.getAttribute('color'));
       if (c) f.color = c;
     }
     // block-level elements (div, p) insert a line break before their content
@@ -787,7 +802,7 @@ export {
   hexToRgb, rgbToHsv, hsvToHex, rgbToHex,
   genId, setNextId, getNextId,
   defaultRuns, runsToPlainText, getArrowLabelRuns,
-  splitRunsIntoLines, runsToHTML, escHtml, htmlToRuns,
+  splitRunsIntoLines, runsToHTML, escHtml, htmlToRuns, safeColor,
   TreeNode, parseBracketNotation,
   measureNodeSize, measureLineRuns, getLineHeight,
   layoutTree, applyOffsets,

@@ -1548,6 +1548,7 @@ class App {
     this.editingNode = null;
     div.remove();
     this.hideFormatBar();
+    this._clearEditCaret();
     this.render();
   }
 
@@ -1557,6 +1558,16 @@ class App {
     this.editingNode = null;
     this.editingArrowIdx = null;
     this.hideFormatBar();
+    this._clearEditCaret();
+  }
+
+  // Firefox keeps a collapsed document selection (blinking caret) on the page
+  // after a focused contentEditable edit box is removed. Clear it explicitly.
+  _clearEditCaret() {
+    const sel = window.getSelection && window.getSelection();
+    if (sel && sel.removeAllRanges) sel.removeAllRanges();
+    const ae = document.activeElement;
+    if (ae && ae !== document.body && typeof ae.blur === 'function') ae.blur();
   }
 
   startEditingArrow(idx, labelX, labelY) {
@@ -1630,6 +1641,7 @@ class App {
     this.editingArrowIdx = null;
     div.remove();
     this.hideFormatBar();
+    this._clearEditCaret();
     this.render();
   }
 
@@ -2028,6 +2040,7 @@ class App {
       });
 
       g.addEventListener('dblclick', (e) => {
+        e.preventDefault();
         e.stopPropagation();
         this.startEditingArrow(idx, finalLabelX, finalLabelY);
       });
@@ -3418,6 +3431,7 @@ class App {
       });
 
       g.addEventListener('dblclick', (e) => {
+        e.preventDefault();
         e.stopPropagation();
         if (!this.arrowMode) this.startEditing(n.id);
       });

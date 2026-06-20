@@ -1782,6 +1782,7 @@ class App {
     if (!this.root) return;
     this._pendingElbowHandles = null;
     this._pendingCurveHandles = null;
+    this._pendingCurveBendHandle = null;
 
     const nodeMap = {};
     function collect(n) { nodeMap[n.id] = n; n.children.forEach(collect); }
@@ -1933,13 +1934,7 @@ class App {
       } else {
         const dist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
         const defaultArm = Math.max(30, Math.min(80, dist * 0.4));
-        // Asymmetric arms: each end has its own control point distance
-        const arm1 = arrow.curveArm1 != null ? arrow.curveArm1 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
-        const arm2 = arrow.curveArm2 != null ? arrow.curveArm2 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
-        const cp1x = p1.x + d1.dx * arm1;
-        const cp1y = p1.y + d1.dy * arm1;
-        const cp2x = p2.x + d2.dx * arm2;
-        const cp2y = p2.y + d2.dy * arm2;
+        const { cp1x, cp1y, cp2x, cp2y } = this._curveControlPoints(arrow, p1, p2, d1, d2, defaultArm);
         const tx = 3 * (p2.x - cp2x);
         const ty = 3 * (p2.y - cp2y);
         const tLen = Math.sqrt(tx * tx + ty * ty) || 1;
@@ -1966,6 +1961,10 @@ class App {
             { x: cp1x, y: cp1y, idx, which: 1, p1, p2, d1, d2 },
             { x: cp2x, y: cp2y, idx, which: 2, p1, p2, d1, d2 },
           ];
+          // Midpoint bend handle
+          const bhx = 0.125 * p1.x + 0.375 * cp1x + 0.375 * cp2x + 0.125 * p2.x;
+          const bhy = 0.125 * p1.y + 0.375 * cp1y + 0.375 * cp2y + 0.125 * p2.y;
+          this._pendingCurveBendHandle = { x: bhx, y: bhy, idx, p1, p2, d1, d2, defaultArm };
         }
       }
 
@@ -2069,6 +2068,11 @@ class App {
       }
       this._pendingCurveHandles = null;
     }
+    if (this._pendingCurveBendHandle) {
+      const h = this._pendingCurveBendHandle;
+      this._renderCurveBendHandle(h.x, h.y, h.idx, h.p1, h.p2, h.d1, h.d2, h.defaultArm);
+      this._pendingCurveBendHandle = null;
+    }
   }
 
   _renderDragHandle(cx, cy, arrowIdx, endpoint, nodeMap) {
@@ -2171,6 +2175,142 @@ class App {
     this.svg.appendChild(rect);
   }
 
+  // Resolve the two cubic control points for a curved arrow. Each control point
+  // is a free 2D offset from its anchor (arrow.cp1Off / cp2Off); for arrows that
+  // predate free handles we fall back to the old arm-along-anchor-direction value
+  // so existing diagrams render unchanged. A shared bend offset (from the
+  // midpoint handle) is added to both.
+  _curveControlPoints(arrow, p1, p2, d1, d2, defaultArm) {
+    const arm1 = arrow.curveArm1 != null ? arrow.curveArm1 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
+    const arm2 = arrow.curveArm2 != null ? arrow.curveArm2 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
+    const off1 = arrow.cp1Off ? arrow.cp1Off : { x: d1.dx * arm1, y: d1.dy * arm1 };
+    const off2 = arrow.cp2Off ? arrow.cp2Off : { x: d2.dx * arm2, y: d2.dy * arm2 };
+    const bx = arrow.curveBendX || 0, by = arrow.curveBendY || 0;
+    return {
+      off1, off2, bx, by,
+      cp1x: p1.x + off1.x + bx, cp1y: p1.y + off1.y + by,
+      cp2x: p2.x + off2.x + bx, cp2y: p2.y + off2.y + by,
+    };
+  }
+
+  // Recompute the curve geometry from the arrow's current control points and
+  // update all related DOM (path, hit area, arrowheads, handles, guides, canvas)
+  // in place. Shared by the endpoint drag and the midpoint-bend drag.
+  _applyCurveLive(arrowIdx, p1, p2, d1, d2, defaultArm) {
+    const arrow = this.arrows[arrowIdx];
+    if (!arrow) return;
+    const { cp1x, cp1y, cp2x, cp2y } = this._curveControlPoints(arrow, p1, p2, d1, d2, defaultArm);
+
+    const tx = 3 * (p2.x - cp2x), ty = 3 * (p2.y - cp2y);
+    const tLen = Math.sqrt(tx * tx + ty * ty) || 1;
+    const ux = tx / tLen, uy = ty / tLen;
+    const hasEnd = arrow.headEnd !== false;
+    const hasStart = !!arrow.headStart;
+    const endX = hasEnd ? p2.x - ux * 7 * 0.8 : p2.x;
+    const endY = hasEnd ? p2.y - uy * 7 * 0.8 : p2.y;
+    const stx2 = cp1x - p1.x, sty2 = cp1y - p1.y;
+    const stLen2 = Math.sqrt(stx2 * stx2 + sty2 * sty2) || 1;
+    const sux = -stx2 / stLen2, suy = -sty2 / stLen2;
+    const startX = hasStart ? p1.x - sux * 7 * 0.8 : p1.x;
+    const startY = hasStart ? p1.y - suy * 7 * 0.8 : p1.y;
+    const newD = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
+
+    const arrowGroup = this.svg.querySelector(`.arrow-group[data-idx="${arrowIdx}"]`);
+    const pathEl = arrowGroup ? arrowGroup.querySelector('.arrow-path') : null;
+    const hitEl = arrowGroup ? arrowGroup.querySelector('path[stroke="transparent"]') : null;
+    if (pathEl) pathEl.setAttribute('d', newD);
+    if (hitEl) hitEl.setAttribute('d', newD);
+
+    const headEnd = arrowGroup ? arrowGroup.querySelector('.arrow-head-end') : null;
+    if (headEnd) {
+      const px = -uy, py = ux, sz = 7;
+      headEnd.setAttribute('points',
+        `${p2.x},${p2.y} ${p2.x-ux*sz+px*sz*0.45},${p2.y-uy*sz+py*sz*0.45} ${p2.x-ux*sz-px*sz*0.45},${p2.y-uy*sz-py*sz*0.45}`);
+    }
+    const headStart = arrowGroup ? arrowGroup.querySelector('.arrow-head-start') : null;
+    if (headStart) {
+      const spx = -suy, spy = sux, sz = 7;
+      headStart.setAttribute('points',
+        `${p1.x},${p1.y} ${p1.x-sux*sz+spx*sz*0.45},${p1.y-suy*sz+spy*sz*0.45} ${p1.x-sux*sz-spx*sz*0.45},${p1.y-suy*sz-spy*sz*0.45}`);
+    }
+
+    const handle1 = this.svg.querySelector('.arrow-drag-handle[data-curve-which="1"]');
+    const handle2 = this.svg.querySelector('.arrow-drag-handle[data-curve-which="2"]');
+    if (handle1) { handle1.setAttribute('cx', cp1x); handle1.setAttribute('cy', cp1y); }
+    if (handle2) { handle2.setAttribute('cx', cp2x); handle2.setAttribute('cy', cp2y); }
+    const guide1 = this.svg.querySelector('.curve-guide[data-curve-which="1"]');
+    const guide2 = this.svg.querySelector('.curve-guide[data-curve-which="2"]');
+    if (guide1) { guide1.setAttribute('x2', cp1x); guide1.setAttribute('y2', cp1y); }
+    if (guide2) { guide2.setAttribute('x2', cp2x); guide2.setAttribute('y2', cp2y); }
+
+    // Midpoint bend handle position
+    const bhx = 0.125 * p1.x + 0.375 * cp1x + 0.375 * cp2x + 0.125 * p2.x;
+    const bhy = 0.125 * p1.y + 0.375 * cp1y + 0.375 * cp2y + 0.125 * p2.y;
+    const bendHandle = this.svg.querySelector('.arrow-curve-bend-handle');
+    if (bendHandle) { bendHandle.setAttribute('cx', bhx); bendHandle.setAttribute('cy', bhy); }
+
+    // Expand canvas if needed
+    let needW = +this.svg.getAttribute('width');
+    let needH = +this.svg.getAttribute('height');
+    for (const v of [cp1x, cp2x, endX, bhx]) if (v + 60 > needW) needW = v + 60;
+    for (const v of [cp1y, cp2y, endY, bhy]) if (v + 60 > needH) needH = v + 60;
+    this.svg.setAttribute('width', needW);
+    this.svg.setAttribute('height', needH);
+    this.svg.style.minWidth = needW + 'px';
+    this.svg.style.minHeight = needH + 'px';
+  }
+
+  _renderCurveBendHandle(cx, cy, arrowIdx, p1, p2, d1, d2, defaultArm) {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', cx);
+    circle.setAttribute('cy', cy);
+    circle.setAttribute('r', 6);
+    circle.setAttribute('class', 'arrow-drag-handle arrow-curve-bend-handle');
+    circle.style.cursor = 'move';
+
+    circle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this._startCurveBendDrag(arrowIdx, p1, p2, d1, d2, defaultArm);
+    });
+
+    this.svg.appendChild(circle);
+  }
+
+  _startCurveBendDrag(arrowIdx, p1, p2, d1, d2, defaultArm) {
+    const arrow = this.arrows[arrowIdx];
+    if (!arrow) return;
+    this._draggingArrow = true;
+    let saved = false;
+    const svgPt = (e) => this.svgPoint(e);
+
+    const onMove = (e) => {
+      if (!saved) { this.saveState(); saved = true; }
+      const pt = svgPt(e);
+      // Midpoint with bend = 0 (depends only on the current control-point offsets)
+      const { off1, off2 } = this._curveControlPoints(arrow, p1, p2, d1, d2, defaultArm);
+      const c1x0 = p1.x + off1.x, c1y0 = p1.y + off1.y;
+      const c2x0 = p2.x + off2.x, c2y0 = p2.y + off2.y;
+      const baseX = 0.125 * p1.x + 0.375 * c1x0 + 0.375 * c2x0 + 0.125 * p2.x;
+      const baseY = 0.125 * p1.y + 0.375 * c1y0 + 0.375 * c2y0 + 0.125 * p2.y;
+      // Midpoint moves 0.75 * bend, so solve for the bend that puts it under the cursor
+      arrow.curveBendX = (pt.x - baseX) / 0.75;
+      arrow.curveBendY = (pt.y - baseY) / 0.75;
+      this._applyCurveLive(arrowIdx, p1, p2, d1, d2, defaultArm);
+    };
+
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      this.render();
+      this.selectArrow(arrowIdx);
+      setTimeout(() => { this._draggingArrow = false; }, 50);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
   _renderCurveHandle(cx, cy, arrowIdx, which, p1, p2, d1, d2) {
     // Draw a thin line from anchor to control point
     const anchor = which === 1 ? p1 : p2;
@@ -2214,90 +2354,28 @@ class App {
     const dist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
     const defaultArm = Math.max(30, Math.min(80, dist * 0.4));
 
-    const arrowGroup = this.svg.querySelector(`.arrow-group[data-idx="${arrowIdx}"]`);
-    const pathEl = arrowGroup ? arrowGroup.querySelector('.arrow-path') : null;
-    const hitEl = arrowGroup ? arrowGroup.querySelector('path[stroke="transparent"]') : null;
-    const handle1 = this.svg.querySelector('.arrow-drag-handle[data-curve-which="1"]');
-    const handle2 = this.svg.querySelector('.arrow-drag-handle[data-curve-which="2"]');
-
-    // The anchor point and direction for the handle being dragged
+    // The anchor the dragged control point hangs off of
     const anchor = which === 1 ? p1 : p2;
-    const dir = which === 1 ? d1 : d2;
 
     const onMove = (e) => {
       if (!saved) { this.saveState(); saved = true; }
       const pt = svgPt(e);
 
-      // Project mouse position onto the anchor's direction to get arm length
-      const offX = pt.x - anchor.x, offY = pt.y - anchor.y;
-      let arm = offX * dir.dx + offY * dir.dy;
-      if (Math.abs(arm) < 5) arm = arm < 0 ? -5 : 5;
-
-      // Store independently
-      if (which === 1) {
-        arrow.curveArm1 = arm;
-      } else {
-        arrow.curveArm2 = arm;
+      // Free 2D control point: store its offset from the anchor (minus the shared
+      // bend, so the bend handle stays independent). Keep a small minimum length
+      // so the control point never collapses onto the anchor.
+      const bx = arrow.curveBendX || 0, by = arrow.curveBendY || 0;
+      let offX = pt.x - anchor.x - bx, offY = pt.y - anchor.y - by;
+      const len = Math.sqrt(offX * offX + offY * offY);
+      if (len < 5) {
+        const dir = which === 1 ? d1 : d2;
+        offX = dir.dx * 5; offY = dir.dy * 5;
       }
+      const off = { x: offX, y: offY };
+      if (which === 1) arrow.cp1Off = off;
+      else arrow.cp2Off = off;
 
-      // Recompute full curve with both arms
-      const a1 = arrow.curveArm1 != null ? arrow.curveArm1 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
-      const a2 = arrow.curveArm2 != null ? arrow.curveArm2 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
-      const cp1x = p1.x + d1.dx * a1;
-      const cp1y = p1.y + d1.dy * a1;
-      const cp2x = p2.x + d2.dx * a2;
-      const cp2y = p2.y + d2.dy * a2;
-      const tx = 3 * (p2.x - cp2x);
-      const ty = 3 * (p2.y - cp2y);
-      const tLen = Math.sqrt(tx * tx + ty * ty) || 1;
-      const ux = tx / tLen, uy = ty / tLen;
-      const hasEnd = arrow.headEnd !== false;
-      const hasStart = !!arrow.headStart;
-      const endX = hasEnd ? p2.x - ux * 7 * 0.8 : p2.x;
-      const endY = hasEnd ? p2.y - uy * 7 * 0.8 : p2.y;
-      // Start tangent for start arrowhead
-      const stx2 = cp1x - p1.x, sty2 = cp1y - p1.y;
-      const stLen2 = Math.sqrt(stx2 * stx2 + sty2 * sty2) || 1;
-      const sux = -stx2 / stLen2, suy = -sty2 / stLen2;
-      const startX = hasStart ? p1.x - sux * 7 * 0.8 : p1.x;
-      const startY = hasStart ? p1.y - suy * 7 * 0.8 : p1.y;
-      const newD = `M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`;
-
-      if (pathEl) pathEl.setAttribute('d', newD);
-      if (hitEl) hitEl.setAttribute('d', newD);
-
-      // Update end arrowhead
-      const headEnd = arrowGroup ? arrowGroup.querySelector('.arrow-head-end') : null;
-      if (headEnd) {
-        const px = -uy, py = ux, sz = 7;
-        headEnd.setAttribute('points',
-          `${p2.x},${p2.y} ${p2.x-ux*sz+px*sz*0.45},${p2.y-uy*sz+py*sz*0.45} ${p2.x-ux*sz-px*sz*0.45},${p2.y-uy*sz-py*sz*0.45}`);
-      }
-      // Update start arrowhead
-      const headStart = arrowGroup ? arrowGroup.querySelector('.arrow-head-start') : null;
-      if (headStart) {
-        const spx = -suy, spy = sux, sz = 7;
-        headStart.setAttribute('points',
-          `${p1.x},${p1.y} ${p1.x-sux*sz+spx*sz*0.45},${p1.y-suy*sz+spy*sz*0.45} ${p1.x-sux*sz-spx*sz*0.45},${p1.y-suy*sz-spy*sz*0.45}`);
-      }
-
-      // Move both control point handles and guide lines
-      if (handle1) { handle1.setAttribute('cx', cp1x); handle1.setAttribute('cy', cp1y); }
-      if (handle2) { handle2.setAttribute('cx', cp2x); handle2.setAttribute('cy', cp2y); }
-      const guide1 = this.svg.querySelector('.curve-guide[data-curve-which="1"]');
-      const guide2 = this.svg.querySelector('.curve-guide[data-curve-which="2"]');
-      if (guide1) { guide1.setAttribute('x2', cp1x); guide1.setAttribute('y2', cp1y); }
-      if (guide2) { guide2.setAttribute('x2', cp2x); guide2.setAttribute('y2', cp2y); }
-
-      // Expand canvas
-      let needW = +this.svg.getAttribute('width');
-      let needH = +this.svg.getAttribute('height');
-      for (const v of [cp1x, cp2x, endX]) if (v + 60 > needW) needW = v + 60;
-      for (const v of [cp1y, cp2y, endY]) if (v + 60 > needH) needH = v + 60;
-      this.svg.setAttribute('width', needW);
-      this.svg.setAttribute('height', needH);
-      this.svg.style.minWidth = needW + 'px';
-      this.svg.style.minHeight = needH + 'px';
+      this._applyCurveLive(arrowIdx, p1, p2, d1, d2, defaultArm);
     };
 
     const onUp = () => {
@@ -2686,6 +2764,10 @@ class App {
           delete arrow.curveArm;
           delete arrow.curveArm1;
           delete arrow.curveArm2;
+          delete arrow.curveBendX;
+          delete arrow.curveBendY;
+          delete arrow.cp1Off;
+          delete arrow.cp2Off;
         }
       }
 
@@ -3141,12 +3223,7 @@ class App {
       const d2 = getAnchorDir(ta);
       const dist = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
       const defaultArm = Math.max(30, Math.min(80, dist * 0.4));
-      const arm1 = arrow.curveArm1 != null ? arrow.curveArm1 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
-      const arm2 = arrow.curveArm2 != null ? arrow.curveArm2 : (arrow.curveArm != null ? arrow.curveArm : defaultArm);
-      const cp1x = p1.x + d1.dx * arm1;
-      const cp1y = p1.y + d1.dy * arm1;
-      const cp2x = p2.x + d2.dx * arm2;
-      const cp2y = p2.y + d2.dy * arm2;
+      const { cp1x, cp1y, cp2x, cp2y } = this._curveControlPoints(arrow, p1, p2, d1, d2, defaultArm);
       maxX = Math.max(maxX, p1.x + 40, p2.x + 40, cp1x + 40, cp2x + 40);
       maxY = Math.max(maxY, p1.y + 40, p2.y + 40, cp1y + 40, cp2y + 40);
 

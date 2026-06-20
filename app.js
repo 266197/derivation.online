@@ -4153,7 +4153,7 @@ class App {
       .branch-line { stroke: #333; stroke-width: 1.2; stroke-linecap: round; }
       .branch-fan { stroke: #333; stroke-width: 1.2; fill: none; stroke-linejoin: miter; stroke-miterlimit: 10; stroke-linecap: round; }
       .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
-      .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
+      .arrow-path { fill: none; stroke: #333; stroke-width: 1.2; stroke-dasharray: 5 3; }
       .arrow-head { fill: #333; stroke: none; }
       .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.75)}px; fill: #333; text-anchor: middle; }
       .anchor-dot { display: none; }
@@ -4250,7 +4250,7 @@ class App {
       .branch-line { stroke: #333; stroke-width: 1.2; stroke-linecap: round; }
       .branch-fan { stroke: #333; stroke-width: 1.2; fill: none; stroke-linejoin: miter; stroke-miterlimit: 10; stroke-linecap: round; }
       .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
-      .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
+      .arrow-path { fill: none; stroke: #333; stroke-width: 1.2; stroke-dasharray: 5 3; }
       .arrow-head { fill: #333; stroke: none; }
       .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.75)}px; fill: #333; text-anchor: middle; }
     `;
@@ -4361,7 +4361,7 @@ class App {
       .branch-line { stroke: #333; stroke-width: 1.2; stroke-linecap: round; }
       .branch-fan { stroke: #333; stroke-width: 1.2; fill: none; stroke-linejoin: miter; stroke-miterlimit: 10; stroke-linecap: round; }
       .triangle-line { stroke: #333; stroke-width: 1.2; fill: none; }
-      .arrow-path { fill: none; stroke: #333; stroke-width: 1.5; stroke-dasharray: 5 3; }
+      .arrow-path { fill: none; stroke: #333; stroke-width: 1.2; stroke-dasharray: 5 3; }
       .arrow-head { fill: #333; stroke: none; }
       .arrow-label { font-family: ${getFontFamily()}; font-size: ${Math.round(getFontSize() * 0.75)}px; fill: #333; text-anchor: middle; }
     `;

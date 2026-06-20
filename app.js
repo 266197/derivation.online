@@ -3180,6 +3180,12 @@ class App {
       return;
     }
 
+    // Position-only frames (node drags) skip invisible/non-interactive elements:
+    // anchor dots are opacity:0 unless hovered or in arrow mode, and branch /
+    // triangle hit areas are transparent click targets — none are needed mid-drag.
+    // The drag-end full render recreates them.
+    const positionOnly = !!opts.skipBracketSync;
+
     layoutTree(this.root, this.alignBottom);
 
     const allNodes = [];
@@ -3334,13 +3340,15 @@ class App {
           }
 
           const pts = `${triTop > pp.y + 1 ? c.x : pp.x},${triTop} ${c.x - c.w/2 + 4},${c.y - triGap} ${c.x + c.w/2 - 4},${c.y - triGap}`;
-          const hit = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-          hit.setAttribute('points', pts);
-          hit.setAttribute('stroke', 'transparent');
-          hit.setAttribute('stroke-width', String(TRIANGLE_HIT_WIDTH));
-          hit.setAttribute('fill', 'transparent');
-          hit.setAttribute('pointer-events', 'all');
-          g.appendChild(hit);
+          if (!positionOnly) {
+            const hit = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            hit.setAttribute('points', pts);
+            hit.setAttribute('stroke', 'transparent');
+            hit.setAttribute('stroke-width', String(TRIANGLE_HIT_WIDTH));
+            hit.setAttribute('fill', 'transparent');
+            hit.setAttribute('pointer-events', 'all');
+            g.appendChild(hit);
+          }
           const path = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
           path.setAttribute('points', pts);
           path.setAttribute('class', 'triangle-line');
@@ -3353,14 +3361,16 @@ class App {
         } else {
           const bp1 = getAnchorPos(n, c.branchParentAnchor || 'bottom');
           const bp2 = getAnchorPos(c, c.branchChildAnchor || 'top');
-          // Hit area for clicking
-          const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-          hit.setAttribute('x1', bp1.x); hit.setAttribute('y1', bp1.y);
-          hit.setAttribute('x2', bp2.x); hit.setAttribute('y2', bp2.y);
-          hit.setAttribute('stroke', 'transparent');
-          hit.setAttribute('stroke-width', String(BRANCH_HIT_WIDTH));
-          hit.setAttribute('pointer-events', 'stroke');
-          g.appendChild(hit);
+          // Hit area for clicking (skipped on position-only drag frames)
+          if (!positionOnly) {
+            const hit = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            hit.setAttribute('x1', bp1.x); hit.setAttribute('y1', bp1.y);
+            hit.setAttribute('x2', bp2.x); hit.setAttribute('y2', bp2.y);
+            hit.setAttribute('stroke', 'transparent');
+            hit.setAttribute('stroke-width', String(BRANCH_HIT_WIDTH));
+            hit.setAttribute('pointer-events', 'stroke');
+            g.appendChild(hit);
+          }
           // Always render branch line in group (hidden when fan covers it, shown when selected)
           const pAnchor = c.branchParentAnchor || 'bottom';
           const siblings = normalChildren.filter(s =>
@@ -3431,14 +3441,16 @@ class App {
       g.appendChild(rect);
       g.appendChild(text);
 
-      for (const a of ['top', 'bottom', 'left', 'right']) {
-        const ap = getAnchorPos(n, a);
-        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        dot.setAttribute('cx', ap.x);
-        dot.setAttribute('cy', ap.y);
-        dot.setAttribute('r', 4);
-        dot.setAttribute('class', 'anchor-dot');
-        g.appendChild(dot);
+      if (!positionOnly) {
+        for (const a of ['top', 'bottom', 'left', 'right']) {
+          const ap = getAnchorPos(n, a);
+          const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          dot.setAttribute('cx', ap.x);
+          dot.setAttribute('cy', ap.y);
+          dot.setAttribute('r', 4);
+          dot.setAttribute('class', 'anchor-dot');
+          g.appendChild(dot);
+        }
       }
 
       g.addEventListener('pointerdown', (e) => {

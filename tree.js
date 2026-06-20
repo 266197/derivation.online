@@ -616,6 +616,20 @@ function getLineHeight() {
 }
 
 function measureNodeSize(node) {
+  // A node's size depends only on its runs and the current font. Text shaping
+  // (canvas measureText) is the dominant cost of layout, and layout runs on
+  // every drag frame — so cache the result and recompute only when the
+  // runs/font signature actually changes (text edit, font/size change).
+  let sig = _fontFamily + '\x00' + _fontSize;
+  for (const r of node.runs) {
+    sig += '\x02' + r.text + '\x01'
+      + (r.bold ? 'b' : '') + (r.italic ? 'i' : '')
+      + (r.sub ? 's' : '') + (r.sup ? 'p' : '') + (r.smallcaps ? 'c' : '');
+  }
+  if (node._measureSig === sig) {
+    return { w: node._measureW, h: node._measureH };
+  }
+
   const lines = splitRunsIntoLines(node.runs);
   let maxW = 0;
   for (const line of lines) {
@@ -626,6 +640,10 @@ function measureNodeSize(node) {
   const padY = getNodePadY();
   const w = Math.max(NODE_MIN_W, maxW + padX * 2);
   const h = padY * 2 + lines.length * lineH;
+
+  node._measureSig = sig;
+  node._measureW = w;
+  node._measureH = h;
   return { w, h };
 }
 

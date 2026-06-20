@@ -474,6 +474,11 @@ class App {
       if (e.target === this.wrapper) deselectHandler(e);
     });
 
+    // Flush any pending debounced autosave before the page unloads
+    window.addEventListener('beforeunload', () => {
+      if (this._autoSaveTimer) this._autoSaveNow();
+    });
+
     // Space+drag panning
     document.addEventListener('keydown', (e) => {
       if (e.key === ' ' && !e.target.closest('.inline-edit') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
@@ -3110,7 +3115,8 @@ class App {
     this._dragRafPending = true;
     requestAnimationFrame(() => {
       this._dragRafPending = false;
-      this.render();
+      // Position-only frame: skip the bracket-notation rebuild.
+      this.render({ skipBracketSync: true });
     });
   }
 
@@ -3160,8 +3166,10 @@ class App {
     if (el) el.textContent = Math.round(this.zoomLevel * 100) + '%';
   }
 
-  render() {
-    this.svg.innerHTML = '';
+  render(opts = {}) {
+    // replaceChildren() clears the SVG via a direct DOM op (no HTML-parser
+    // round-trip that innerHTML='' incurs).
+    this.svg.replaceChildren();
     this.emptyState.style.display = this.root ? 'none' : 'block';
 
     if (!this.root) {
@@ -3173,11 +3181,6 @@ class App {
     }
 
     layoutTree(this.root, this.alignBottom);
-    applyOffsets(this.root);
-    if (document.activeElement !== this.bracketInput) {
-      this.bracketInput.value = this.root.toLabeledBrackets();
-      this._highlightBrackets();
-    }
 
     const allNodes = [];
     this.nodeMap.clear();
@@ -3185,23 +3188,31 @@ class App {
     function collect(n) { allNodes.push(n); nodeMap.set(n.id, n); n.children.forEach(collect); }
     collect(this.root);
 
-    // Center tree horizontally in the wrapper
-    // Subtract root's own offsetX from positions to compute centering as if
-    // root weren't dragged — root's horizontal drag then persists on top
-    const rootDx = this.root.offsetX || 0;
+    // Horizontal centering is based on the tree's NATURAL layout bounds, captured
+    // BEFORE manual drag offsets are applied. This way dragging an individual node
+    // moves only that node/subtree and never re-centers the rest of the tree.
+    // Root drags still translate the whole tree, because applyOffsets() cascades
+    // the root offset onto every node after these bounds are measured.
     let treeMinX = Infinity, treeMaxX = -Infinity;
     allNodes.forEach(n => {
-      treeMinX = Math.min(treeMinX, (n.x - rootDx) - n.w / 2);
-      treeMaxX = Math.max(treeMaxX, (n.x - rootDx) + n.w / 2);
+      treeMinX = Math.min(treeMinX, n.x - n.w / 2);
+      treeMaxX = Math.max(treeMaxX, n.x + n.w / 2);
     });
     const treeW = treeMaxX - treeMinX;
+
+    applyOffsets(this.root);
+
+    // Bracket notation is unaffected by pure position drags, so skip rebuilding
+    // and re-highlighting the textarea on those frames.
+    if (!opts.skipBracketSync && document.activeElement !== this.bracketInput) {
+      this.bracketInput.value = this.root.toLabeledBrackets();
+      this._highlightBrackets();
+    }
+
     // Use unzoomed wrapper width so centering offset stays constant across zoom levels
     // (prevents elbow/arrow absolute coordinates from drifting)
     const wrapperW = this.wrapper.clientWidth;
     const centerShift = Math.max(40, (wrapperW - treeW) / 2) - treeMinX;
-    // centerShift centers the un-dragged tree; rootDx is already in n.x,
-    // so subtract it first to get un-dragged positions, then add centerShift,
-    // then add rootDx back to preserve root's horizontal drag
     allNodes.forEach(n => { n.x += centerShift; });
 
     const canvasPad = Math.max(60, getLevelGap());
@@ -3439,37 +3450,38 @@ class App {
           return;
         }
         const startX = e.clientX, startY = e.clientY;
+        // Capture the node's offsets at drag start; the live offset is always
+        // base + (absolute cursor delta), so the node tracks the cursor exactly
+        // with no movementX/Y accumulation drift.
+        const baseOffsetX = n.offsetX, baseOffsetY = n.offsetY;
         let isDrag = false;
         let dragSaved = false;
         let constrainAxis = null; // null | 'x' | 'y'
-        // Raw offsets track true cursor position; snap adjusts what's rendered
-        let rawOffsetX = n.offsetX, rawOffsetY = n.offsetY;
+        try { g.setPointerCapture(e.pointerId); } catch (_) {}
 
         const onMove = (ev) => {
-          const dx = ev.clientX - startX, dy = ev.clientY - startY;
-          if (!isDrag && (dx * dx + dy * dy) < 25) return; // 5px threshold
+          const dxCss = ev.clientX - startX, dyCss = ev.clientY - startY;
+          if (!isDrag && (dxCss * dxCss + dyCss * dyCss) < 25) return; // 5px threshold
           if (!isDrag) {
             isDrag = true;
             this.select(n.id);
             this._draggingNodeId = n.id;
             // Lock axis on drag start if Shift is held
             if (ev.shiftKey) {
-              constrainAxis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+              constrainAxis = Math.abs(dxCss) >= Math.abs(dyCss) ? 'x' : 'y';
             }
           }
           if (!dragSaved) { this.saveState(); dragSaved = true; }
           // Shift pressed mid-drag: lock to dominant axis from origin
           if (ev.shiftKey && !constrainAxis) {
-            constrainAxis = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+            constrainAxis = Math.abs(dxCss) >= Math.abs(dyCss) ? 'x' : 'y';
           } else if (!ev.shiftKey) {
             constrainAxis = null;
           }
-          const mx = constrainAxis === 'y' ? 0 : ev.movementX / this.zoomLevel;
-          const my = constrainAxis === 'x' ? 0 : ev.movementY / this.zoomLevel;
-          rawOffsetX += mx;
-          rawOffsetY += my;
-          n.offsetX = rawOffsetX;
-          n.offsetY = rawOffsetY;
+          const dxSvg = (constrainAxis === 'y' ? 0 : dxCss) / this.zoomLevel;
+          const dySvg = (constrainAxis === 'x' ? 0 : dyCss) / this.zoomLevel;
+          n.offsetX = baseOffsetX + dxSvg;
+          n.offsetY = baseOffsetY + dySvg;
           // Snap to horizontal/vertical branch alignment
           this._applyBranchSnap(n);
           this._renderDrag();
@@ -3483,6 +3495,7 @@ class App {
         const onUp = () => {
           document.removeEventListener('pointermove', onMove);
           document.removeEventListener('pointerup', onUp);
+          try { g.releasePointerCapture(e.pointerId); } catch (_) {}
           this._draggingNodeId = null;
           if (isDrag) {
             // Block the click event that follows pointerup
@@ -3872,7 +3885,19 @@ class App {
 
   // --- Auto-save & Save/Load ---
 
+  // Debounced: render() and many mutations call this, including on every drag
+  // frame. Coalesce into a single trailing write so we never block on a
+  // synchronous localStorage.setItem (full tree serialization) mid-drag.
   _autoSave() {
+    if (this._autoSaveTimer) return;
+    this._autoSaveTimer = setTimeout(() => {
+      this._autoSaveTimer = null;
+      this._autoSaveNow();
+    }, 500);
+  }
+
+  _autoSaveNow() {
+    if (this._autoSaveTimer) { clearTimeout(this._autoSaveTimer); this._autoSaveTimer = null; }
     try {
       const data = {
         tree: this.root ? this.root.toJSON() : null,

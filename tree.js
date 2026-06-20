@@ -8,6 +8,12 @@ function getNodePadY() { return Math.round(NODE_PAD_Y_BASE * (_fontSize / 12)); 
 const LEVEL_GAP_BASE = 55;
 const LEVEL_GAP_SINGLE_BASE = 40;
 const SIBLING_GAP = 16;
+// When a node's children spread wide horizontally, grow the vertical drop so the
+// branches to the outermost children don't flatten out. Vertical drop is at least
+// (horizontal half-spread * BRANCH_ANGLE_FACTOR): 1.0 caps the outermost branch at
+// ~45° from vertical. Higher = steeper/taller, lower = flatter/wider.
+const BRANCH_ANGLE_FACTOR = 1.0;
+const MAX_LEVEL_GAP_BASE = 220; // cap so very wide trees don't get absurdly tall
 const ELBOW_SNAP = 12;         // snap threshold for elbow drag near extension points
 const BRANCH_HIT_WIDTH = 24;   // invisible stroke width for branch click hit area
 const TRIANGLE_HIT_WIDTH = 20; // invisible stroke width for triangle click hit area
@@ -31,6 +37,7 @@ function getFontSize() { return _fontSize; }
 function setFontSize(s) { _fontSize = s; }
 function getLevelGap() { return Math.round(LEVEL_GAP_BASE * (_fontSize / 12)); }
 function getLevelGapSingle() { return Math.round(LEVEL_GAP_SINGLE_BASE * (_fontSize / 12)); }
+function getMaxLevelGap() { return Math.round(MAX_LEVEL_GAP_BASE * (_fontSize / 12)); }
 
 const COLORS = [
   { name: 'Black',  hex: '#333333' },
@@ -670,19 +677,36 @@ function layoutTree(root, alignBottom) {
     node.y = top;
     if (node.isLeaf) {
       node.x = left + node.subtreeW / 2;
-    } else {
-      const childrenTotalW = node.children.reduce((s, c) => s + c.subtreeW, 0)
-        + SIBLING_GAP * (node.children.length - 1);
-      let cx = left + (node.subtreeW - childrenTotalW) / 2;
-      node.children.forEach(c => {
-        const gap = node.children.length === 1 ? getLevelGapSingle() : getLevelGap();
-        assignPositions(c, cx, top + node.h + gap - getNodePadY() * 2 - getLineHeight());
-        cx += c.subtreeW + SIBLING_GAP;
-      });
-      const first = node.children[0];
-      const last = node.children[node.children.length - 1];
-      node.x = (first.x + last.x) / 2;
+      return;
     }
+    const childrenTotalW = node.children.reduce((s, c) => s + c.subtreeW, 0)
+      + SIBLING_GAP * (node.children.length - 1);
+    const startX = left + (node.subtreeW - childrenTotalW) / 2;
+
+    // Pre-compute each child's center x to measure how far they spread.
+    const centers = [];
+    let cx = startX;
+    node.children.forEach(c => {
+      centers.push(cx + c.subtreeW / 2);
+      cx += c.subtreeW + SIBLING_GAP;
+    });
+    const parentX = (centers[0] + centers[centers.length - 1]) / 2;
+    const maxOffset = centers.reduce((m, x) => Math.max(m, Math.abs(x - parentX)), 0);
+
+    // Vertical drop grows with the horizontal spread so branches to the outermost
+    // children stay at a balanced angle instead of flattening out as the tree
+    // widens. Single-child and narrow nodes keep the base gap.
+    const baseGap = node.children.length === 1 ? getLevelGapSingle() : getLevelGap();
+    const gap = Math.max(baseGap, Math.min(maxOffset * BRANCH_ANGLE_FACTOR, getMaxLevelGap()));
+    node._levelGap = gap;
+    const childTop = top + node.h + gap - getNodePadY() * 2 - getLineHeight();
+
+    cx = startX;
+    node.children.forEach(c => {
+      assignPositions(c, cx, childTop);
+      cx += c.subtreeW + SIBLING_GAP;
+    });
+    node.x = (node.children[0].x + node.children[node.children.length - 1].x) / 2;
   }
 
   computeWidths(root);
@@ -707,7 +731,8 @@ function layoutTree(root, alignBottom) {
       if (n.isLeaf) return;
       n.children.forEach(adjustParents);
       const minChildY = Math.min(...n.children.map(c => c.y));
-      const gap = n.children.length === 1 ? getLevelGapSingle() : getLevelGap();
+      const gap = n._levelGap != null ? n._levelGap
+        : (n.children.length === 1 ? getLevelGapSingle() : getLevelGap());
       const naturalY = minChildY - gap + getNodePadY() * 2 + getLineHeight() - n.h;
       // Only move down, never up
       if (naturalY > n.y) n.y = naturalY;

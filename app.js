@@ -2198,6 +2198,25 @@ class App {
     };
   }
 
+  // Grow the SVG canvas to keep dragged arrow geometry visible. Updates the
+  // viewBox AND the scaled width/height together — changing width/height alone
+  // (as the drag code used to) rescales the whole viewBox, which made the tree
+  // appear to shift during an arrow drag and snap back on release.
+  _growCanvas(xs, ys) {
+    const vb = (this.svg.getAttribute('viewBox') || '0 0 0 0').split(/\s+/).map(Number);
+    const baseW = vb[2] || 0, baseH = vb[3] || 0;
+    let w = baseW, h = baseH;
+    for (const x of xs) if (x + 60 > w) w = x + 60;
+    for (const y of ys) if (y + 60 > h) h = y + 60;
+    if (w === baseW && h === baseH) return;
+    this.svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const sw = w * this.zoomLevel, sh = h * this.zoomLevel;
+    this.svg.setAttribute('width', sw);
+    this.svg.setAttribute('height', sh);
+    this.svg.style.minWidth = sw + 'px';
+    this.svg.style.minHeight = sh + 'px';
+  }
+
   // Recompute the curve geometry from the arrow's current control points and
   // update all related DOM (path, hit area, arrowheads, handles, guides, canvas)
   // in place. Shared by the endpoint drag and the midpoint-bend drag.
@@ -2254,15 +2273,8 @@ class App {
     const bendHandle = this.svg.querySelector('.arrow-curve-bend-handle');
     if (bendHandle) { bendHandle.setAttribute('cx', bhx); bendHandle.setAttribute('cy', bhy); }
 
-    // Expand canvas if needed
-    let needW = +this.svg.getAttribute('width');
-    let needH = +this.svg.getAttribute('height');
-    for (const v of [cp1x, cp2x, endX, bhx]) if (v + 60 > needW) needW = v + 60;
-    for (const v of [cp1y, cp2y, endY, bhy]) if (v + 60 > needH) needH = v + 60;
-    this.svg.setAttribute('width', needW);
-    this.svg.setAttribute('height', needH);
-    this.svg.style.minWidth = needW + 'px';
-    this.svg.style.minHeight = needH + 'px';
+    // Expand canvas if needed (viewBox + scaled size together, no rescale)
+    this._growCanvas([cp1x, cp2x, endX, bhx], [cp1y, cp2y, endY, bhy]);
   }
 
   _renderCurveBendHandle(cx, cy, arrowIdx, p1, p2, d1, d2, defaultArm) {
@@ -2541,19 +2553,10 @@ class App {
         handle3.setAttribute('y', h3y - 4);
       }
 
-      // Expand canvas and auto-scroll
+      // Expand canvas (viewBox + scaled size together, no rescale) and auto-scroll
       const dragX = which === 1 ? h1x : which === 2 ? h2x : h3x;
       const dragY = which === 1 ? h1y : which === 2 ? h2y : h3y;
-      let needW = +this.svg.getAttribute('width');
-      let needH = +this.svg.getAttribute('height');
-      for (const p of pts) {
-        if (p.x + 60 > needW) needW = p.x + 60;
-        if (p.y + 60 > needH) needH = p.y + 60;
-      }
-      this.svg.setAttribute('width', needW);
-      this.svg.setAttribute('height', needH);
-      this.svg.style.minWidth = needW + 'px';
-      this.svg.style.minHeight = needH + 'px';
+      this._growCanvas(pts.map(p => p.x), pts.map(p => p.y));
 
       const wr = this.wrapper;
       const margin = 30;

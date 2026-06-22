@@ -1168,6 +1168,7 @@ class App {
     delete this.arrows[this.selectedArrowIdx].elbowMidValue;
     delete this.arrows[this.selectedArrowIdx].elbowMidValue2;
     delete this.arrows[this.selectedArrowIdx].elbowMidValue3;
+    delete this.arrows[this.selectedArrowIdx]._elbowAnchor;
     this.render();
     this.selectArrow(this.selectedArrowIdx);
   }
@@ -1843,6 +1844,12 @@ class App {
         const sameAxis = d1h === d2h;
         const e1 = { x: p1.x + d1.dx * gap, y: p1.y + d1.dy * gap };
         const e2 = { x: p2.x + d2.dx * gap, y: p2.y + d2.dy * gap };
+        // Manual elbow bends are stored relative to the from-anchor position at
+        // the time they were set (_elbowAnchor); shift by how far that anchor has
+        // moved so the elbow tracks the tree instead of staying at fixed coords.
+        if (!arrow._elbowAnchor) arrow._elbowAnchor = { x: e1.x, y: e1.y };
+        const eddx = e1.x - arrow._elbowAnchor.x;
+        const eddy = e1.y - arrow._elbowAnchor.y;
         const pts = [{ x: p1.x, y: p1.y }, { x: e1.x, y: e1.y }];
 
         let handles = []; // drag handle positions
@@ -1850,9 +1857,9 @@ class App {
         if (sameAxis && d1h) {
           // Both horizontal: 4 elbows, 3 drag handles
           const defaultMidY = Math.max(e1.y, e2.y) + 30;
-          const midY = arrow.elbowMidValue != null ? arrow.elbowMidValue : defaultMidY;
-          let lx = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 : e1.x;
-          let rx = arrow.elbowMidValue3 != null ? arrow.elbowMidValue3 : e2.x;
+          const midY = arrow.elbowMidValue != null ? arrow.elbowMidValue + eddy : defaultMidY;
+          let lx = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 + eddx : e1.x;
+          let rx = arrow.elbowMidValue3 != null ? arrow.elbowMidValue3 + eddx : e2.x;
           if (Math.abs(lx - e1.x) < ESNAP) lx = e1.x;
           if (Math.abs(rx - e2.x) < ESNAP) rx = e2.x;
           pts.push({ x: lx, y: e1.y });
@@ -1865,7 +1872,7 @@ class App {
         } else if (sameAxis && !d1h) {
           // Both vertical: 2 elbows, 1 drag handle
           const defaultMid = Math.max(e1.y, e2.y) + 20;
-          const mid = arrow.elbowMidValue != null ? arrow.elbowMidValue : defaultMid;
+          const mid = arrow.elbowMidValue != null ? arrow.elbowMidValue + eddy : defaultMid;
           pts.push({ x: e1.x, y: mid });
           pts.push({ x: e2.x, y: mid });
           handles.push({ x: (e1.x + e2.x) / 2, y: mid, axis: 'y', which: 1 });
@@ -1874,8 +1881,8 @@ class App {
           if (d1h) {
             const defaultMid1 = (e1.x + e2.x) / 2;
             const defaultMid2 = e2.y;
-            let mid1 = arrow.elbowMidValue != null ? arrow.elbowMidValue : defaultMid1;
-            let mid2 = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 : defaultMid2;
+            let mid1 = arrow.elbowMidValue != null ? arrow.elbowMidValue + eddx : defaultMid1;
+            let mid2 = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 + eddy : defaultMid2;
             if (Math.abs(mid1 - e1.x) < ESNAP) mid1 = e1.x;
             if (Math.abs(mid2 - e2.y) < ESNAP) mid2 = e2.y;
             pts.push({ x: mid1, y: e1.y });
@@ -1886,8 +1893,8 @@ class App {
           } else {
             const defaultMid1 = (e1.y + e2.y) / 2;
             const defaultMid2 = e2.x;
-            let mid1 = arrow.elbowMidValue != null ? arrow.elbowMidValue : defaultMid1;
-            let mid2 = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 : defaultMid2;
+            let mid1 = arrow.elbowMidValue != null ? arrow.elbowMidValue + eddy : defaultMid1;
+            let mid2 = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 + eddx : defaultMid2;
             if (Math.abs(mid1 - e1.y) < ESNAP) mid1 = e1.y;
             if (Math.abs(mid2 - e2.x) < ESNAP) mid2 = e2.x;
             pts.push({ x: e1.x, y: mid1 });
@@ -2427,16 +2434,7 @@ class App {
       if (!saved) { this.saveState(); saved = true; }
       const pt = svgPt(e);
 
-      // Update the correct mid-value
-      if (which === 1) {
-        arrow.elbowMidValue = axis === 'x' ? pt.x : pt.y;
-      } else if (which === 2) {
-        arrow.elbowMidValue2 = axis === 'x' ? pt.x : pt.y;
-      } else if (which === 3) {
-        arrow.elbowMidValue3 = axis === 'x' ? pt.x : pt.y;
-      }
-
-      // Rebuild path
+      // Rebuild path from current node positions first
       const nodeMap = {};
       const walk = (n) => { nodeMap[n.id] = n; n.children.forEach(walk); };
       if (this.root) walk(this.root);
@@ -2453,15 +2451,25 @@ class App {
       const gap = 25;
       const e1 = { x: p1.x + d1.dx * gap, y: p1.y + d1.dy * gap };
       const e2 = { x: p2.x + d2.dx * gap, y: p2.y + d2.dy * gap };
+      if (!arrow._elbowAnchor) arrow._elbowAnchor = { x: e1.x, y: e1.y };
+      const eddx = e1.x - arrow._elbowAnchor.x;
+      const eddy = e1.y - arrow._elbowAnchor.y;
+
+      // Store the dragged mid-value in the anchor's frame so it tracks the tree
+      const setVal = axis === 'x' ? pt.x - eddx : pt.y - eddy;
+      if (which === 1) arrow.elbowMidValue = setVal;
+      else if (which === 2) arrow.elbowMidValue2 = setVal;
+      else if (which === 3) arrow.elbowMidValue3 = setVal;
+
       const pts = [{ x: p1.x, y: p1.y }, { x: e1.x, y: e1.y }];
 
       let h1x, h1y, h2x, h2y, h3x, h3y;
       const ESNAP = ELBOW_SNAP;
       if (sameAxis && d1h) {
         // Both horizontal: 4 elbows, 3 handles
-        const midY = arrow.elbowMidValue != null ? arrow.elbowMidValue : Math.max(e1.y, e2.y) + 30;
-        let lx = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 : e1.x;
-        let rx = arrow.elbowMidValue3 != null ? arrow.elbowMidValue3 : e2.x;
+        const midY = arrow.elbowMidValue != null ? arrow.elbowMidValue + eddy : Math.max(e1.y, e2.y) + 30;
+        let lx = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 + eddx : e1.x;
+        let rx = arrow.elbowMidValue3 != null ? arrow.elbowMidValue3 + eddx : e2.x;
         if (Math.abs(lx - e1.x) < ESNAP) lx = e1.x;
         if (Math.abs(rx - e2.x) < ESNAP) rx = e2.x;
         pts.push({ x: lx, y: e1.y });
@@ -2473,13 +2481,13 @@ class App {
         h3x = rx; h3y = (midY + e2.y) / 2;
       } else if (sameAxis) {
         // Both vertical: 2 elbows, 1 handle
-        const mv1 = arrow.elbowMidValue != null ? arrow.elbowMidValue : Math.max(e1.y, e2.y) + 20;
+        const mv1 = arrow.elbowMidValue != null ? arrow.elbowMidValue + eddy : Math.max(e1.y, e2.y) + 20;
         pts.push({ x: e1.x, y: mv1 });
         pts.push({ x: e2.x, y: mv1 });
         h1x = (e1.x + e2.x) / 2; h1y = mv1;
       } else {
-        let mv1 = arrow.elbowMidValue != null ? arrow.elbowMidValue : (d1h ? (e1.x + e2.x) / 2 : (e1.y + e2.y) / 2);
-        let mv2 = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 : (d1h ? e2.y : e2.x);
+        let mv1 = arrow.elbowMidValue != null ? arrow.elbowMidValue + (d1h ? eddx : eddy) : (d1h ? (e1.x + e2.x) / 2 : (e1.y + e2.y) / 2);
+        let mv2 = arrow.elbowMidValue2 != null ? arrow.elbowMidValue2 + (d1h ? eddy : eddx) : (d1h ? e2.y : e2.x);
         if (d1h) {
           if (Math.abs(mv1 - e1.x) < ESNAP) mv1 = e1.x;
           if (Math.abs(mv2 - e2.y) < ESNAP) mv2 = e2.y;
@@ -2768,6 +2776,7 @@ class App {
             delete arrow.elbowMidValue;
             delete arrow.elbowMidValue2;
             delete arrow.elbowMidValue3;
+            delete arrow._elbowAnchor;
           }
           delete arrow.curveArm;
           delete arrow.curveArm1;
@@ -3247,18 +3256,16 @@ class App {
       maxX = Math.max(maxX, p1.x + 40, p2.x + 40, cp1x + 40, cp2x + 40);
       maxY = Math.max(maxY, p1.y + 40, p2.y + 40, cp1y + 40, cp2y + 40);
 
-      if (arrow.elbowMidValue != null) {
-        maxX = Math.max(maxX, arrow.elbowMidValue + 60);
-        maxY = Math.max(maxY, arrow.elbowMidValue + 60);
-      }
-      if (arrow.elbowMidValue2 != null) {
-        maxX = Math.max(maxX, arrow.elbowMidValue2 + 60);
-        maxY = Math.max(maxY, arrow.elbowMidValue2 + 60);
-      }
-      if (arrow.elbowMidValue3 != null) {
-        maxX = Math.max(maxX, arrow.elbowMidValue3 + 60);
-        maxY = Math.max(maxY, arrow.elbowMidValue3 + 60);
-      }
+      // Elbow bends are stored relative to the from-anchor; resolve to absolute
+      // (same _elbowAnchor scheme as renderArrows) so the canvas fits them.
+      const e1b = { x: p1.x + d1.dx * 25, y: p1.y + d1.dy * 25 };
+      if (!arrow._elbowAnchor) arrow._elbowAnchor = { x: e1b.x, y: e1b.y };
+      const beddx = e1b.x - arrow._elbowAnchor.x, beddy = e1b.y - arrow._elbowAnchor.y;
+      [arrow.elbowMidValue, arrow.elbowMidValue2, arrow.elbowMidValue3].forEach(v => {
+        if (v == null) return;
+        maxX = Math.max(maxX, v + beddx + 60);
+        maxY = Math.max(maxY, v + beddy + 60);
+      });
     });
     // Use viewBox for zoom: SVG coordinates stay unchanged, CSS size = scaled
     this.svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`);
